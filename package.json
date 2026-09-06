@@ -1,0 +1,60 @@
+{
+  "name": "xiptv",
+  "version": "1.0.0",
+  "description": "Cross-platform desktop IPTV player for Xtream Codes and M3U, with an XMLTV guide and Chromecast",
+  "main": "dist-electron/main/index.js",
+  "author": "thefutsy",
+  "license": "MIT",
+  "homepage": "https://github.com/thefutsy/xiptv",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thefutsy/xiptv.git"
+  },
+  "bugs": "https://github.com/thefutsy/xiptv/issues",
+  "keywords": [
+    "iptv",
+    "xtream-codes",
+    "m3u",
+    "xmltv",
+    "epg",
+    "chromecast",
+    "electron"
+  ],
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "dist": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder",
+    "dist:win": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder --linux",
+    "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "bonjour-service": "^1.4.4",
+    "castv2-client": "^1.2.0",
+    "ffmpeg-static": "^5.3.0",
+    "lucide-react": "^0.469.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "hls.js": "^1.5.20",
+    "mpegts.js": "^1.8.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "zustand": "^5.0.2"
+  }
+}

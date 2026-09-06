@@ -1,0 +1,375 @@
+import {
+  useCallback, useEffect, useMemo, useRef, useState,
+  type ReactNode,
+} from 'react';
+import type { MediaItem, SourceStats } from '@shared/types';
+import { useActiveSource, useApp } from '@/state/store';
+import { Skeleton, EmptyState, Button } from '@/components/Primitives';
+import {
+  Glyph, ICON, Segmented, pushRecent, readRecents, clearRecents, useAdultIds, isAdultItem } from '@/components/CommandPalette';
+import { MediaRow, PosterCard, PosterCardSkeleton } from '@/components/Results';
+import { VGrid, VList } from '@/lib/virtual';
+import { useGridMetrics } from '@/lib/metrics';
+import {
+  activeFacetCount, applyFacets, countKinds, deriveDecades, deriveGenres, fold, hasMixedKinds,
+  matchesName, prefersRows, sortItems, toggleIn, EMPTY_FACETS,
+  type Facets, type KindTab, type SortKey,
+} from '@/lib/catalog';
+import { classNames, errorText } from '@/lib/format';
+import './misc.css';
+
+const RATING_STEPS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: '0', label: 'Any' }, { value: '6.5', label: '6.5+' }, { value: '7.5', label: '7.5+' },
+];
+const QUALITIES = ['4K', 'FHD', 'HD'] as const;
+
+function FacetToggle({ facets, open, onOpen, onClear }: { facets: Facets; open: boolean; onOpen: () => void; onClear: () => void }) {
+  const count = activeFacetCount(facets);
+  return (
+    <div className="mx-facets__bar">
+      <button type="button" className={classNames('mx-facets__toggle sm', open && 'mx-facets__toggle--on')} onClick={onOpen}>
+        <Glyph icon={ICON.sliders} />
+        Filters
+        {count > 0 && <span className="mx-facets__badge data">{count}</span>}
+      </button>
+      {count > 0 && <button type="button" className="mx-facets__clear sm t-tertiary" onClick={onClear}>Clear all</button>}
+    </div>
+  );
+}
+
+function FacetPanel({ items, facets, onChange }: { items: MediaItem[]; facets: Facets; onChange: (f: Facets) => void }) {
+  const genres = useMemo(() => deriveGenres(items), [items]);
+  const decades = useMemo(() => deriveDecades(items), [items]);
+
+  return (
+    <div className="mx-facets__panel">
+      {genres.length > 0 && (
+        <div className="mx-facets__group">
+          <span className="mx-facets__label">Genre</span>
+          <div className="mx-facets__chips">
+            {genres.map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={classNames('mx-tog sm', facets.genres.includes(g) && 'mx-tog--on')}
+                onClick={() => onChange({ ...facets, genres: toggleIn(facets.genres, g) })}
+              >{g}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {decades.length > 0 && (
+        <div className="mx-facets__group">
+          <span className="mx-facets__label">Decade</span>
+          <div className="mx-facets__chips">
+            {decades.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={classNames('mx-tog data', facets.years.includes(d) && 'mx-tog--on')}
+                onClick={() => onChange({ ...facets, years: toggleIn(facets.years, d) })}
+              >{d}s</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mx-facets__group">
+        <span className="mx-facets__label">Rating</span>
+        <Segmented
+          label="Minimum rating"
+          value={String(facets.minRating)}
+          options={RATING_STEPS}
+          onChange={(v) => onChange({ ...facets, minRating: Number(v) })}
+        />
+      </div>
+
+      <div className="mx-facets__group">
+        <span className="mx-facets__label">Quality</span>
+        <div className="mx-facets__chips">
+          {QUALITIES.map((q) => (
+            <button
+              key={q}
+              type="button"
+              className={classNames('mx-tog data', facets.qualities.includes(q) && 'mx-tog--on')}
+              onClick={() => onChange({ ...facets, qualities: toggleIn(facets.qualities, q) })}
+            >{q}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
+  { value: 'provider', label: 'Best match' },
+  { value: 'name', label: 'Name A–Z' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'year', label: 'Year' },
+  { value: 'added', label: 'Recently added' },
+];
+
+export function SearchPage() {
+  const route = useApp((s) => s.route);
+  const source = useActiveSource();
+
+  const routeQuery = route.view === 'search' ? route.query : '';
+  const [draft, setDraft] = useState(routeQuery);
+  const [query, setQuery] = useState(routeQuery);
+  const [results, setResults] = useState<MediaItem[]>([]);
+  const [error, setError] = useState<string | undefined>();
+  const [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<KindTab>('all');
+  const [facets, setFacets] = useState<Facets>(EMPTY_FACETS);
+  const [sort, setSort] = useState<SortKey>('provider');
+  const [facetsOpen, setFacetsOpen] = useState(false);
+  const [recents, setRecents] = useState<string[]>(() => readRecents());
+  const [stats, setStats] = useState<SourceStats | undefined>();
+
+  const pageRef = useRef<HTMLDivElement>(null);
+  const request = useRef(0);
+  const metrics = useGridMetrics(pageRef);
+
+  useEffect(() => { setDraft(routeQuery); setQuery(routeQuery); }, [routeQuery]);
+
+  useEffect(() => {
+    if (!source) return;
+    let alive = true;
+    window.iptv.catalog.stats(source.id).then((s) => { if (alive) setStats(s); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [source]);
+
+  useEffect(() => {
+    const q = draft.trim();
+    if (q === query) return;
+    const timer = setTimeout(() => setQuery(q), 220);
+    return () => clearTimeout(timer);
+  }, [draft, query]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!source || q.length < 2) { setResults([]); setError(undefined); setLoading(false); return; }
+    setLoading(true);
+    const id = ++request.current;
+    window.iptv.catalog.search(source.id, q)
+      .then((found) => { if (id === request.current) { setResults(found); setError(undefined); setLoading(false); } })
+      .catch((err: unknown) => {
+        if (id !== request.current) return;
+        setResults([]);
+        setError(errorText(err));
+        setLoading(false);
+      });
+  }, [query, source, attempt]);
+
+  const adultIds = useAdultIds(source?.id);
+
+  const matched = useMemo(() => {
+    const q = fold(query.trim());
+    if (q.length < 2) return [];
+    const visible = adultIds.size ? results.filter((r) => !isAdultItem(adultIds, r)) : results;
+    return visible.filter((item) => matchesName(item, q) || item.programmeMatch !== undefined);
+  }, [results, query, adultIds]);
+
+  const counts = useMemo(() => countKinds(matched), [matched]);
+
+  const scoped = useMemo(() => tab === 'all' ? matched : matched.filter((m) => m.kind === tab), [matched, tab]);
+  const shown = useMemo(() => sortItems(applyFacets(scoped, facets), sort), [scoped, facets, sort]);
+
+  const asList = prefersRows(tab, counts);
+  const mixed = hasMixedKinds(counts);
+
+  const commit = useCallback((value: string) => {
+    const q = value.trim();
+    setDraft(q);
+    setQuery(q);
+    if (q.length >= 2) setRecents(pushRecent(q));
+    useApp.getState().navigate({ view: 'search', query: q });
+  }, []);
+
+  const hasQuery = query.trim().length >= 2;
+
+  const counted = hasQuery && error === undefined;
+  const tabs = useMemo(() => ([
+    { value: 'all' as KindTab, label: 'All', count: counted ? counts.all : undefined },
+    { value: 'live' as KindTab, label: 'Live TV', count: counted ? counts.live : undefined },
+    { value: 'movie' as KindTab, label: 'Movies', count: counted ? counts.movie : undefined },
+    { value: 'series' as KindTab, label: 'TV Shows', count: counted ? counts.series : undefined },
+  ]), [counts, counted]);
+
+  const headerBar = (
+    <header className="mx-head search__head">
+      <div className="search__bar">
+        <span className="search__glyph"><Glyph icon={ICON.search} /></span>
+        <input
+          className="search__input"
+          value={draft}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="Search every channel, movie and series"
+          dir="auto"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit(e.currentTarget.value);
+            if (e.key === 'Escape') { setDraft(''); commit(''); }
+          }}
+        />
+        {draft.length > 0 && (
+          <button type="button" className="search__clear" aria-label="Clear search" onClick={() => { setDraft(''); commit(''); }}>
+            <Glyph icon={ICON.close} />
+          </button>
+        )}
+      </div>
+
+      <div className="search__meta">
+        <p className="mx-head__count data">
+          {error !== undefined
+            ? <>Catalogue did not answer</>
+            : hasQuery
+            ? <>{shown.length.toLocaleString()} shown{shown.length !== matched.length && <> · {matched.length.toLocaleString()} matched</>}</>
+            : stats
+              ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
+              : <>Catalogue not read yet</>}
+        </p>
+        <span className="search__meta-spacer" />
+        <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={setTab} />
+        <label className="mx-select">
+          <span className="mx-select__label micro">Sort</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {hasQuery && (
+        <FacetToggle
+          facets={facets}
+          open={facetsOpen}
+          onOpen={() => setFacetsOpen((o) => !o)}
+          onClear={() => setFacets(EMPTY_FACETS)}
+        />
+      )}
+    </header>
+  );
+
+  let body: ReactNode;
+
+  if (loading && shown.length === 0) {
+    body = asList || !metrics.ready ? (
+      <div className="mx-scroll">
+        <div className="search__skel-rows" style={{ padding: metrics.pad }}>
+          {Array.from({ length: 10 }, (_, i) => (
+            <div className="search__skel-row" style={{ height: metrics.listRowH }} key={i}>
+              <Skeleton width={56} height={34} radius={6} />
+              <Skeleton width={`${44 - i * 2}%`} height={12} radius={3} />
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <VGrid
+        className="mx-scroll"
+        count={metrics.columns * 3}
+        columnWidth={metrics.cellW - 0.5}
+        rowHeight={metrics.cellH}
+        gapX={metrics.gapX}
+        gapY={metrics.gapY}
+        padding={metrics.pad}
+      >
+        {() => <PosterCardSkeleton artH={metrics.artH} />}
+      </VGrid>
+    );
+  } else if (!hasQuery) {
+    body = (
+      <div className="mx-scroll">
+        <div className="search__idle-body" style={{ paddingInline: metrics.pad }}>
+          {recents.length > 0 && (
+            <>
+              <div className="mx-section-label">
+                <span>Recent searches</span>
+                <button type="button" className="mx-section-label__act" onClick={() => { clearRecents(); setRecents([]); }}>Clear</button>
+              </div>
+              <div className="search__recents">
+                {recents.map((r) => (
+                  <button key={r} type="button" className="mx-tog sm search__recent" onClick={() => commit(r)}>
+                    <Glyph icon={ICON.history} />
+                    <span className="truncate">{r}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <EmptyState
+            glyph={<Glyph icon={ICON.search} size={24} />}
+            title="Find it by name"
+            body={stats
+              ? `Channels, movies and series across ${(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories are indexed on this machine. Two characters is enough.`
+              : 'Everything your provider ships is indexed on this machine. Two characters is enough to start.'}
+            action={<Button variant="ghost" onClick={() => useApp.getState().patch({ paletteOpen: true })}>Open the quick palette</Button>}
+          />
+        </div>
+      </div>
+    );
+  } else if (error !== undefined) {
+    body = (
+      <div className="mx-scroll">
+        <EmptyState
+          glyph={<Glyph icon={ICON.alert} size={24} />}
+          title="That search did not come back"
+          body={error}
+          action={<Button variant="ghost" onClick={() => setAttempt((a) => a + 1)}>Try again</Button>}
+        />
+      </div>
+    );
+  } else if (shown.length === 0) {
+    body = (
+      <div className="mx-scroll">
+        <EmptyState
+          glyph={<Glyph icon={ICON.search} size={24} />}
+          title={matched.length > 0 ? 'Filtered down to nothing' : 'No title under that name'}
+          body={matched.length > 0
+            ? 'The filters above removed every match. Clearing the rating or the quality chips usually brings them back.'
+            : 'Providers name things strangely. A movie can arrive as "TITLE 2019 MULTI-SUB 4K". Try a shorter fragment without the year.'}
+          action={matched.length > 0
+            ? <Button variant="ghost" onClick={() => setFacets(EMPTY_FACETS)}>Clear filters</Button>
+            : <Button variant="ghost" onClick={() => { setDraft(''); commit(''); }}>Clear search</Button>}
+        />
+      </div>
+    );
+  } else if (asList) {
+    body = (
+      <VList className="mx-scroll" count={shown.length} rowHeight={metrics.listRowH}>
+        {(i) => <MediaRow item={shown[i]} showKind={tab === 'all' && mixed} />}
+      </VList>
+    );
+  } else {
+    body = (
+      <VGrid
+        className="mx-scroll"
+        count={shown.length}
+        columnWidth={metrics.cellW - 0.5}
+        rowHeight={metrics.cellH}
+        gapX={metrics.gapX}
+        gapY={metrics.gapY}
+        padding={metrics.pad}
+      >
+        {(i) => <PosterCard item={shown[i]} artH={metrics.artH} />}
+      </VGrid>
+    );
+  }
+
+  return (
+    <div className="mx-page search" ref={pageRef}>
+      {headerBar}
+      {hasQuery && facetsOpen && (
+        <div className="search__facets">
+          <FacetPanel items={scoped} facets={facets} onChange={setFacets} />
+        </div>
+      )}
+      {body}
+    </div>
+  );
+}
+
+export { SearchPage as Search };

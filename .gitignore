@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.env
+*.log
+
+# Vendored ffmpeg binaries: ~139 MB each, fetched by scripts/fetch-ffmpeg.mjs
+vendor/
+
+.DS_Store
+*.local

@@ -1,0 +1,8 @@
+import { createRoot } from 'react-dom/client';
+import '@/styles/global.css';
+import { App } from '@/App';
+
+const host = document.getElementById('root');
+if (!host) throw new Error('#root is missing from index.html');
+
+createRoot(host).render(<App />);

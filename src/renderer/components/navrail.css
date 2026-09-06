@@ -1,0 +1,69 @@
+.navrail {
+  --nav-cell: 60px;
+  position: relative;
+  z-index: calc(var(--z-chrome) + 1);
+  flex: none;
+  width: var(--w-rail);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--bg-app);
+  box-shadow: var(--seam-right);
+}
+
+.navrail__marker {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  width: 2px;
+  height: var(--nav-cell);
+  pointer-events: none;
+}
+.navrail__marker[data-primed="true"] { transition: transform var(--dur-3) var(--ease-standard); }
+
+.navrail__groups { display: flex; flex-direction: column; }
+.navrail__group { display: flex; flex-direction: column; gap: 2px; }
+.navrail__rule { display: block; height: 1px; margin: 8px 6px; background: var(--border-hairline); }
+
+.navrail__item {
+  position: relative;
+  width: 100%;
+  height: var(--nav-cell);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 4px;
+  border-radius: var(--r-row);
+  color: var(--text-secondary);
+  overflow: hidden;
+  transition: background-color var(--dur-1) var(--ease-micro), color var(--dur-1) var(--ease-micro),
+              transform 200ms var(--ease-out);
+}
+.navrail__icon { flex: none; color: var(--text-tertiary); transition: color var(--dur-1) var(--ease-micro); }
+.navrail__label {
+  max-width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  letter-spacing: var(--ls-micro);
+  font-weight: var(--fw-medium);
+}
+
+.navrail__item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.navrail__item:hover .navrail__icon { color: var(--text-secondary); }
+
+.navrail__item:active { transform: translateY(0.5px); transition: transform 80ms var(--ease-in); }
+
+.navrail__item[data-active="true"] { background: var(--accent-dim); color: var(--text-primary); }
+.navrail__item[data-active="true"] .navrail__icon { color: var(--text-primary); }
+.navrail__item[data-active="true"] .navrail__label { font-weight: var(--fw-label); }
+
+.navrail__foot { display: flex; flex-direction: column; }
+
+.navrail .tip-anchor { display: block; }

@@ -1,0 +1,35 @@
+appId: com.xiptv.app
+productName: xiptv
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+asarUnpack:
+  - "**/node_modules/ffmpeg-static/**"
+win:
+  icon: build/icon.png
+  # The vendored hardware-capable ffmpeg. Landed outside the asar so it stays executable, and
+  # named plainly so resolveFfmpegPath() can find it without knowing the platform layout.
+  extraResources:
+    - from: vendor/ffmpeg/win32-${arch}/ffmpeg.exe
+      to: ffmpeg/ffmpeg.exe
+  target: [nsis]
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+mac:
+  icon: build/icon.png
+  target: [dmg]
+  category: public.app-category.entertainment
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+linux:
+  icon: build/icon.png
+  extraResources:
+    - from: vendor/ffmpeg/linux-${arch}/ffmpeg
+      to: ffmpeg/ffmpeg
+  # fpm refuses to build a .deb without a maintainer; nothing here is a real contact address.
+  maintainer: xiptv <xiptv@localhost>
+  target: [AppImage, deb]
+  category: AudioVideo
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}

@@ -1,0 +1,32 @@
+.toast {
+  position: fixed;
+  z-index: var(--z-toast);
+  bottom: calc(24px + var(--toast-lift, 0px));
+  left: 50%;
+  translate: -50% 0;
+  max-width: 480px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-line);
+  border-radius: var(--r-control);
+  box-shadow: var(--shadow-2);
+  color: var(--text-primary);
+  animation: toast-in var(--dur-3) var(--ease-out) both;
+}
+.toast[data-castbar="true"] { --toast-lift: var(--h-castbar); }
+/* The player's transport band is 150px tall and sits at a lower z-index, so an un-lifted
+   toast covered the scrubber and swallowed clicks on it. */
+.toast[data-playing] { --toast-lift: var(--chrome-bottom-h, 150px); }
+.toast[data-tone="error"] { border-color: var(--danger); }
+
+.toast__glyph { flex: none; color: var(--text-tertiary); }
+.toast[data-tone="error"] .toast__glyph { color: var(--danger); }
+.toast__message { min-width: 0; }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes toast-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation-name: toast-fade; } }

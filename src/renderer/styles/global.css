@@ -1,0 +1,101 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+  font-weight: var(--fw-body);
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+/* `font: inherit` does not carry letter-spacing: the UA sheet's `normal` survives on form
+   controls, so without this every button in the app drops off the tracking scale. */
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+input { user-select: text; }
+
+a { color: inherit; text-decoration: none; }
+
+img { display: block; max-width: 100%; }
+
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+h1, h2, h3, h4, p { margin: 0; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-row);
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: var(--r-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+.serif-1 {
+  font-family: var(--font-display); font-weight: var(--fw-serif);
+  font-size: var(--fs-serif-1); line-height: var(--lh-serif-1); letter-spacing: var(--ls-serif-1);
+}
+.serif-2 {
+  font-family: var(--font-display); font-weight: var(--fw-serif);
+  font-size: var(--fs-serif-2); line-height: var(--lh-serif-2); letter-spacing: var(--ls-serif-2);
+}
+.h1 { font-size: var(--fs-h1); line-height: var(--lh-h1); letter-spacing: var(--ls-h1); font-weight: var(--fw-title); }
+.h2 { font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--ls-h2); font-weight: var(--fw-label); }
+.sm { font-size: var(--fs-sm); line-height: var(--lh-sm); letter-spacing: var(--ls-sm); }
+.caption { font-size: var(--fs-caption); line-height: var(--lh-caption); letter-spacing: var(--ls-caption); }
+.micro { font-size: var(--fs-micro); line-height: var(--lh-micro); letter-spacing: var(--ls-micro); }
+
+.data {
+  font-family: var(--font-mono); font-size: var(--fs-data); line-height: var(--lh-data);
+  letter-spacing: var(--ls-data); font-variant-numeric: tabular-nums;
+}
+.kicker {
+  font-family: var(--font-mono); font-size: var(--fs-kicker); line-height: var(--lh-kicker);
+  letter-spacing: var(--ls-kicker); text-transform: uppercase; color: var(--text-tertiary);
+}
+
+.t-secondary { color: var(--text-secondary); }
+.t-tertiary { color: var(--text-tertiary); }
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.grain {
+  position: fixed; inset: 0; z-index: var(--z-grain); pointer-events: none;
+  background-image: var(--tex-grain); background-size: 140px 140px;
+  opacity: var(--grain-opacity); mix-blend-mode: overlay;
+}
+
+@keyframes breathe { 0%, 100% { opacity: 0.05; } 50% { opacity: 0.11; } }
+.skeleton {
+  background: var(--text-primary);
+  border-radius: var(--r-card);
+  animation: breathe 1600ms var(--ease-standard) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; opacity: 0.06; }
+}
+
+.drag { -webkit-app-region: drag; }
+.no-drag { -webkit-app-region: no-drag; }

@@ -153,6 +153,61 @@ function attachHls(video: HTMLVideoElement, stream: ResolvedStream, opts: Attach
   };
 }
 
+/**
+ * A live connection opens with the provider replaying its buffer, so tens of seconds of video land
+ * in a couple of seconds and the play head starts that far behind the edge. Stepping forward while
+ * that burst is still arriving just seeks again on the next chunk, so wait until the buffer stops
+ * outrunning the wall clock and then step once.
+ */
+const LIVE_SAMPLE_MS = 500;
+const LIVE_SETTLED_SAMPLES = 2;
+/** Buffer growing more than this much faster than real time means the replay is still draining. */
+const LIVE_BURST_RATIO = 1.5;
+const LIVE_MAX_LATENCY = 6;
+const LIVE_CEILING_LATENCY = 60;
+const LIVE_TARGET_LATENCY = 2;
+const LIVE_STEP_COOLDOWN_MS = 5_000;
+
+function liveEdgeGuard(video: HTMLVideoElement): () => void {
+  let lastEnd = 0;
+  let lastAt = Date.now();
+  let settled = 0;
+  let steppedAt = 0;
+
+  const timer = setInterval(() => {
+    const ranges = video.buffered;
+    if (!ranges.length || video.paused || video.seeking) return;
+
+    const last = ranges.length - 1;
+    const end = ranges.end(last);
+    const now = Date.now();
+    const grew = end - lastEnd;
+    const wall = (now - lastAt) / 1000;
+    lastEnd = end;
+    lastAt = now;
+
+    const latency = end - video.currentTime;
+    settled = grew > wall * LIVE_BURST_RATIO ? 0 : settled + 1;
+
+    const drained = settled >= LIVE_SETTLED_SAMPLES && latency > LIVE_MAX_LATENCY;
+    // Everything ahead of the play head is held in the source buffer, and Chromium's quota error
+    // suspends mpegts.js's transmuxer for good on a live stream. Step early rather than ride out a
+    // replay long enough to overflow it.
+    if (!drained && latency <= LIVE_CEILING_LATENCY) return;
+    if (now - steppedAt < LIVE_STEP_COOLDOWN_MS) return;
+
+    // Land inside the range: mpegts.js reads a seek outside the buffered ranges as an unbuffered
+    // seek and flushes the source buffer to serve it.
+    const start = ranges.start(last);
+    const target = Math.min(end - 0.1, Math.max(start + 0.1, end - LIVE_TARGET_LATENCY));
+    if (target <= start || target <= video.currentTime) return;
+    steppedAt = now;
+    video.currentTime = target;
+  }, LIVE_SAMPLE_MS);
+
+  return () => clearInterval(timer);
+}
+
 function attachMpegts(video: HTMLVideoElement, stream: ResolvedStream, opts: AttachOptions): Attachment {
   if (!mpegts.isSupported()) {
     reportUnsupported(opts);
@@ -166,10 +221,10 @@ function attachMpegts(video: HTMLVideoElement, stream: ResolvedStream, opts: Att
       enableStashBuffer: false,
       stashInitialSize: 128,
       isLive: true,
-      liveBufferLatencyChasing: true,
-      liveBufferLatencyChasingOnPaused: false,
-      liveBufferLatencyMaxLatency: 3.0,
-      liveBufferLatencyMinRemain: 0.4,
+      // Chasing off: see liveEdgeGuard. mpegts.js corrects latency by assigning currentTime on
+      // every buffer update, and the provider's replay burst keeps it above any threshold for the
+      // whole burst, so it fires hundreds of times before the first frame settles.
+      liveBufferLatencyChasing: false,
       lazyLoad: false,
       autoCleanupSourceBuffer: true,
       autoCleanupMaxBackwardDuration: 60,
@@ -213,9 +268,12 @@ function attachMpegts(video: HTMLVideoElement, stream: ResolvedStream, opts: Att
   player.load();
   void Promise.resolve(player.play()).catch(() => undefined);
 
+  const stopGuard = liveEdgeGuard(video);
+
   return {
     video,
     teardown: () => {
+      stopGuard();
       if (reloadTimer) clearTimeout(reloadTimer);
       player.off(mpegts.Events.ERROR, onError);
       try {

@@ -48,6 +48,10 @@ interface MediaState {
 }
 
 const LIVE_STALL_REVIVE_MS = 5_000;
+/** Opening a live channel means a connection, the provider's replay and a first keyframe. Reviving
+ *  on the 5 s budget throws all of that away and asks a one-connection provider for a slot it has
+ *  not released yet, which is slower than simply waiting. */
+const LIVE_START_REVIVE_MS = 20_000;
 const MAX_LIVE_REVIVALS = 6;
 /** ffmpeg prints the input header within a second or two of starting, or not at all. */
 const DURATION_POLL_MS = 500;
@@ -78,6 +82,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
   const resumeRef = useRef(now.startAt ?? 0);
   const castTimeRef = useRef(0);
   const retriedTranscodeRef = useRef(false);
+  const playedRef = useRef(false);
   if (cast.connected) castTimeRef.current = cast.currentTime;
 
   const [media, setMedia] = useState<MediaState>(ZERO);
@@ -162,6 +167,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
 
     setError(undefined);
     setStall(0);
+    playedRef.current = false;
     clockRef.current = mediaClock(stream, resumeRef.current);
 
     let alive = true;
@@ -420,8 +426,9 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
       revivalsRef.current += 1;
       retry();
     };
-    const onPlaying = (): void => { revivalsRef.current = 0; };
-    const timer = stall > 1 ? setTimeout(revive, LIVE_STALL_REVIVE_MS) : undefined;
+    const onPlaying = (): void => { revivalsRef.current = 0; playedRef.current = true; };
+    const budget = playedRef.current ? LIVE_STALL_REVIVE_MS : LIVE_START_REVIVE_MS;
+    const timer = stall > 1 ? setTimeout(revive, budget) : undefined;
     v.addEventListener('ended', revive);
     v.addEventListener('playing', onPlaying);
     return () => {

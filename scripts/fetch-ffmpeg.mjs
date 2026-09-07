@@ -23,7 +23,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, chmodSync, renameSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, chmodSync, renameSync, copyFileSync } from 'node:fs';
 import { mkdtemp, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -110,7 +110,14 @@ async function fetchOne(key) {
     if (got !== entry.sha256) throw new Error(`checksum mismatch for ${key}\n  expected ${entry.sha256}\n  got      ${got}`);
     const exe = await extract(archive, entry.kind, work);
     mkdirSync(dirname(dest), { recursive: true });
-    renameSync(exe, dest);
+    try {
+      renameSync(exe, dest);
+    } catch (err) {
+      // A rename cannot cross volumes. Windows CI puts the temp directory on C: and the checkout
+      // on D:, so it lands here every time; a copy is the only move that works across the two.
+      if (err.code !== 'EXDEV') throw err;
+      copyFileSync(exe, dest);
+    }
     chmodSync(dest, 0o755);
     console.log(`[ffmpeg] ${key}: vendored -> ${dest}`);
   } finally {

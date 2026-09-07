@@ -26,12 +26,37 @@ and it plays what your provider sends.
 - **Live TV, Movies and TV Shows**, each using your provider's own categories.
 - **A real guide.** Now and next on every channel row, plus a scrollable timeline. Channels your
   provider ships without listings are matched to the guide by name.
-- **Better EPG** Grabs public country guides cover the channels your providers EPG doesn't have. As a result, you get a much better EPG result out the box. Tick them
-  on and off in Settings, add any XMLTV URL, or pin a channel to a guide entry by hand.
+- **Better EPG.** Grabs public country guides to cover the channels your provider's EPG doesn't
+  have, so you get a much better guide out the box. Tick them on and off in Settings, add any
+  XMLTV URL, or pin a channel to a guide entry by hand.
 - **Chromecast.** It finds devices on the network and gives you a docked cast bar.
 - Favourites, Continue Watching, search, and a command palette on `Ctrl`/`⌘`+`K`.
 
-## Running it
+## Install
+
+Installers for all three platforms are on the
+[releases page](https://github.com/thefutsy/xiptv/releases). macOS builds are Apple Silicon only
+for now.
+
+None of them are code signed, so each system will object the first time.
+
+**macOS** will say the app is damaged and offer to move it to the Bin. It is not damaged, it just
+has no Apple signature. Drag it to Applications, then run:
+
+```bash
+xattr -cr /Applications/xiptv.app
+```
+
+That clears the quarantine flag macOS adds to anything downloaded from a browser. The app opens
+normally from then on.
+
+**Windows** will show a SmartScreen warning. Choose More info, then Run anyway.
+
+On first launch, add a source. An Xtream account needs the server origin (`http://host` or
+`http://host:port`, no path), a username and a password. The guide URL is optional and defaults to
+`xmltv.php` on the same server.
+
+## Building it
 
 ```bash
 npm install
@@ -44,11 +69,8 @@ To build an installer for the machine you are on:
 npm run dist      # or dist:win / dist:mac / dist:linux
 ```
 
-You get NSIS on Windows, a DMG on macOS, and AppImage + deb on Linux.
-
-On first launch, add a source. An Xtream account needs the server origin (`http://host` or
-`http://host:port`, no path), a username and a password. The guide URL is optional and defaults to
-`xmltv.php` on the same server.
+You get NSIS on Windows, a DMG on macOS, and AppImage + deb on Linux. Pushing a `v*` tag builds
+all three on CI and puts them on a release.
 
 ## How it works
 

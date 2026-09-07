@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Build the installers without cutting a release, to check the pipeline still works.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing should not throw away the other two builds.
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, platform: linux }
+          - { os: macos-latest, platform: mac }
+          - { os: windows-latest, platform: win }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # fetch-ffmpeg unpacks the Windows build with unzip, which the runner image does not carry.
+      - if: matrix.platform == 'win'
+        run: choco install unzip -y --no-progress
+
+      - run: npm ci
+
+      # Host platform only. macOS has no vendored build on purpose and falls back to ffmpeg-static,
+      # which the script says and then skips.
+      - run: node scripts/fetch-ffmpeg.mjs
+
+      - run: npm run build
+
+      - name: Package
+        run: npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          # There are no signing certificates, so stop electron-builder hunting for one and failing.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage
+            release/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    # Manual runs build and stop. Only a tag produces a release.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+
+      - run: ls -lh installers
+
+      # One job owns the release, so three parallel builds cannot race to create it.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" installers/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

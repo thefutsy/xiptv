@@ -450,6 +450,10 @@ async function resolveStream(req: PlayRequest): Promise<ResolvedStream> {
 
   const forceTranscode = req.transcode === true || store.needsTranscode(transcodeKey(req));
   const engine: PlaybackEngine = forceTranscode ? 'transcode' : pickPlaybackEngine(kind, container);
+  // start() returns early when the server is already up, so this costs nothing on the normal path.
+  // It matters when a quit tore the server down without the process ever exiting: the app would
+  // otherwise refuse to play anything for the rest of its life.
+  await streamServer.start();
   const reg = streamServer.register({ directUrl, kind, container, title, durationSecs: duration });
 
   const url = engine === 'transcode' ? reg.transcodeUrl
@@ -711,6 +715,8 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
+/** Long enough for ffmpeg to die and the receiver to be told, short enough to never feel stuck. */
+const QUIT_CLEANUP_TIMEOUT_MS = 4_000;
 let quitting = false;
 app.on('before-quit', (event) => {
   if (quitting) return;
@@ -719,5 +725,10 @@ app.on('before-quit', (event) => {
   quitting = true;
   event.preventDefault();
   store?.flush();
-  void Promise.allSettled([cast?.shutdown(), streamServer?.stop()]).then(() => app.quit());
+  // Cleanup is worth waiting for, but never at the cost of the quit itself: stop() drops the
+  // stream server before it waits on the listening socket, so a close that never settles leaves a
+  // live window that cannot play anything.
+  const cleanup = Promise.allSettled([cast?.shutdown(), streamServer?.stop()]);
+  const deadline = new Promise<void>((resolve) => setTimeout(resolve, QUIT_CLEANUP_TIMEOUT_MS));
+  void Promise.race([cleanup, deadline]).then(() => app.quit());
 });

@@ -8,6 +8,14 @@ playlist, and it plays what that provider sends.
 
 <img src="build/icon.png" width="96" alt="">
 
+![Live TV with now and next on every channel, the XMLTV guide, the film grid, a series with its episodes, and a channel handed to a Chromecast](docs/demo.gif)
+
+That clip is not a mock-up. It is rendered from the app's own stylesheets, and the line-up,
+listings, artwork and catalogue counts in it are real data pulled from a live Xtream account.
+Nothing about that account is in this repository: no host, no credentials, and no stream URLs.
+[`demo/`](demo) holds the Remotion project that draws it, and `npm run build` in there produces
+the full fifty second video alongside this GIF.
+
 ## What it does
 
 - **Two protocols.** Xtream Codes (host + username + password) and M3U/M3U8 playlists, remote or
@@ -115,6 +123,7 @@ src/
     lib/redact.ts        strips provider passwords out of anything a person can see
   preload/index.ts       the contextBridge surface
   renderer/              React app (see styles/tokens.css for the design system)
+demo/                    Remotion project that renders the demo video and the README GIF
 ```
 
 ## Notes and limits

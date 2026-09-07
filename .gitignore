@@ -10,3 +10,13 @@ vendor/
 
 .DS_Store
 *.local
+
+# Rendered demo output. docs/demo.gif is committed because the README serves it.
+demo/out/
+
+# Artwork the demo downloads from the provider's metadata and the tv-logos project. Third party
+# images, and `node scripts/pull.mjs` fetches them, so they are not worth carrying in the repo.
+demo/public/art/
+
+# Raw provider API responses cached by demo/scripts/pull.mjs.
+demo/.cache/

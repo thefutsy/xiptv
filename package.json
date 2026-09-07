@@ -40,6 +40,12 @@
     "ffmpeg-static": "^5.3.0",
     "lucide-react": "^0.469.0"
   },
+  "overrides": {
+    "protobufjs": "^7.6.3",
+    "castv2-client": {
+      "debug": "^4.4.3"
+    }
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",

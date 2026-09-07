@@ -48,6 +48,8 @@ jobs:
           # There are no signing certificates, so stop electron-builder hunting for one and failing.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      # The exclusion drops the NSIS uninstaller stub, a build intermediate electron-builder
+      # writes into the output directory beside the installer.
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}
@@ -56,8 +58,6 @@ jobs:
             release/*.dmg
             release/*.AppImage
             release/*.deb
-            # NSIS writes its uninstaller stub next to the installer. It is a build intermediate,
-            # not something anyone should be able to download off the release page.
             !release/*__uninstaller*.exe
           if-no-files-found: error
           retention-days: 7

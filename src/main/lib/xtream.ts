@@ -8,6 +8,8 @@ import type {
   SeriesDetail,
 } from '@shared/types';
 
+import { PREFIX_CODES } from '@shared/text';
+
 import { redactText } from './redact.js';
 
 /** Some providers gate their API/streams on a player-ish User-Agent. VLC is universally allowed. */
@@ -41,6 +43,18 @@ const GLYPH_PREFIX_RE = new RegExp(`^[\\p{L}\\p{N}][\\p{L}\\p{N}\\s./-]{0,11}?\\
 
 const PIPE_PREFIX_RE = /^[A-Z]{2,5}\s*\|\s*/;
 
+/**
+ * `UK - BBC 1 UHD` -> `BBC 1 UHD`. Only a token on `PREFIX_CODES` is stripped, and the dash has to
+ * be followed by a space, so `MI-5` and `NCIS - Los Angeles` survive intact.
+ */
+const DASH_PREFIX_RE = /^([\p{L}\p{N}]{2,5})\s*[-\u2013\u2014]\s+/u;
+
+function stripDashPrefix(s: string): string {
+  const m = DASH_PREFIX_RE.exec(s);
+  if (!m || !PREFIX_CODES.has(m[1].toUpperCase())) return s;
+  return s.slice(m[0].length);
+}
+
 const TRAILING_YEAR_RE = /\s*[-–—([]\s*(?:19|20)\d{2}\s*[)\]]?\s*$/;
 
 const TRAILING_YEAR_CAPTURE_RE = /[-–—([]\s*((?:19|20)\d{2})\s*[)\]]?\s*$/;
@@ -55,6 +69,7 @@ const MULTI_SPACE_RE = /\s{2,}/g;
  *
  * `EN ★ Soumsoum, the Night of the Stars - 2026` -> `Soumsoum, the Night of the Stars`
  * `UK ★ BBC NEWS FHD`                            -> `BBC NEWS FHD`
+ * `UK - BBC 1 UHD`                               -> `BBC 1 UHD`
  *
  * Quality tags are deliberately kept: on live channels `FHD`/`4K` is the only thing that
  * distinguishes otherwise identical entries. Never returns an empty string for a non-empty input.
@@ -66,10 +81,10 @@ export function cleanTitle(raw: string): string {
   for (let i = 0; i < 3; i++) {
     const stripped = s
       .replace(GLYPH_PREFIX_RE, '')
-      .replace(PIPE_PREFIX_RE, '')
-      .replace(LEADING_DECOR_RE, '');
-    if (stripped === s || stripped.length === 0) break;
-    s = stripped;
+      .replace(PIPE_PREFIX_RE, '');
+    const dashed = stripDashPrefix(stripped).replace(LEADING_DECOR_RE, '');
+    if (dashed === s || dashed.length === 0) break;
+    s = dashed;
   }
   const undecorated = s.replace(TRAILING_DECOR_RE, '');
   s = undecorated.replace(TRAILING_YEAR_RE, '');

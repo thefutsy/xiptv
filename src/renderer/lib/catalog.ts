@@ -1,18 +1,10 @@
 import type { Category, MediaItem, MediaKind } from '@shared/types';
-import { fold } from '@shared/text';
+import { fold, KIND_MARKERS, PREFIX_CODES } from '@shared/text';
 
 const DECOR = '★☆✪❖◉▣●■◆♦▪▸►|:';
-const CATEGORY_PREFIX = new RegExp(`^([\\p{L}\\d-]{2,6})\\s*[${DECOR}]*\\s*`, 'u');
+const CATEGORY_PREFIX = new RegExp(`^([\\p{L}\\d-]{2,6})\\s*[${DECOR}-]*\\s*`, 'u');
+const CATEGORY_SUFFIX = /\s*[[(]([\p{L}\d-]{2,8})[\])]\s*$/u;
 const CATEGORY_DECOR = new RegExp(`^[${DECOR}\\s]+`, 'u');
-
-const PREFIX_ALLOWLIST = new Set([
-  'AD','AE','AF','AL','AM','AR','AT','AU','AZ','BA','BE','BG','BR','BY','CA','CH','CL','CN','CO',
-  'CZ','DE','DK','DZ','EC','EE','EG','ES','FI','FR','GB','GR','HR','HU','ID','IE','IL','IN','IQ',
-  'IR','IS','IT','JP','KR','KW','LB','LT','LU','LV','MA','MD','ME','MK','MT','MX','MY','NG','NL',
-  'NO','NZ','PE','PH','PK','PL','PT','QA','RO','RS','RU','SA','SE','SI','SK','SY','TH','TN','TR',
-  'TW','UA','UK','US','UY','VE','VN','ZA',
-  'EN','VIP','4K','UHD','FHD','HD','SD','PPV','EX-YU','LATINO','MULTI','XXX','ALL','ARAB','AFR',
-]);
 
 const QUALITY_TOKENS = new Set(['4K', 'UHD', 'FHD', 'HD', 'SD', 'HEVC', 'H265']);
 
@@ -41,24 +33,35 @@ function titleCase(input: string): string {
   return input.toLowerCase().replace(/\b([\p{L}\p{N}])([\p{L}\p{N}'’-]*)/gu, (_m, head: string, tail: string) => {
     const word = head + tail;
     if (QUALITY_TOKENS.has(word.toUpperCase()) || /^\d+$/.test(word)) return word.toUpperCase();
-    if (word.length <= 3 && /^[a-z]+$/.test(word) && PREFIX_ALLOWLIST.has(word.toUpperCase())) return word.toUpperCase();
+    if (word.length <= 3 && /^[a-z]+$/.test(word) && PREFIX_CODES.has(word.toUpperCase())) return word.toUpperCase();
     return head.toUpperCase() + tail;
   });
 }
 
 export function parseCategory(category: Category): ParsedCategory {
   const raw = category.name;
-  let rest = raw.trim();
+  // Leading decoration comes off first, or a name wrapped like `|UK| GENERAL` never reaches the
+  // prefix rule at all.
+  let rest = raw.trim().replace(CATEGORY_DECOR, '').trim();
   const chips: string[] = [];
 
-  for (let i = 0; i < 2; i++) {
+  // A trailing language tag (`VOD - ACTION [EN]`) is a chip like any other prefix.
+  const suffix = CATEGORY_SUFFIX.exec(rest);
+  if (suffix && PREFIX_CODES.has(suffix[1].toUpperCase())) {
+    chips.push(suffix[1].toUpperCase());
+    rest = rest.slice(0, suffix.index).trim();
+  }
+
+  for (let i = 0; i < 3; i++) {
     const m = CATEGORY_PREFIX.exec(rest);
     if (!m) break;
     const token = m[1].toUpperCase();
-    if (!PREFIX_ALLOWLIST.has(token)) break;
-    const remainder = rest.slice(m[0].length).trim();
+    const marker = KIND_MARKERS.has(token);
+    if (!marker && !PREFIX_CODES.has(token)) break;
+    const remainder = rest.slice(m[0].length).replace(CATEGORY_DECOR, '').trim();
     if (!remainder) break;
-    chips.push(token);
+    // `VOD`/`SRS` repeat on every category in a section, so they are dropped rather than chipped.
+    if (!marker && !chips.includes(token)) chips.push(token);
     rest = remainder;
   }
 
@@ -82,7 +85,12 @@ export interface VariantGroup {
   labels: string[];
 }
 
-const VARIANT_SUFFIX = /\s*(?:\[[^\]]*\]|\([^)]*\)|\b(?:4K|UHD|FHD|HD|SD|HEVC|H265|MULTI-?SUB|BACKUP\s*\d*|ALT\s*\d*|\d)\b)\s*$/i;
+/**
+ * A trailing marker that distinguishes duplicates of the same channel rather than a different
+ * channel. A bare number is deliberately not on this list: `BBC 1` and `BBC 2` are two channels,
+ * not two feeds of one, and stripping the digit collapsed the whole of ITV into a single row.
+ */
+const VARIANT_SUFFIX = /\s*(?:\[[^\]]*\]|\([^)]*\)|\b(?:4K|UHD|FHD|HD|SD|HEVC|H265|MULTI-?SUB|BACKUP\s*\d*|ALT\s*\d*)\b)\s*$/i;
 
 function variantKey(item: MediaItem): string {
   let name = item.title;

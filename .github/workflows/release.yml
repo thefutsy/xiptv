@@ -56,6 +56,9 @@ jobs:
             release/*.dmg
             release/*.AppImage
             release/*.deb
+            # NSIS writes its uninstaller stub next to the installer. It is a build intermediate,
+            # not something anyone should be able to download off the release page.
+            !release/*__uninstaller*.exe
           if-no-files-found: error
           retention-days: 7
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Source, SourceKind, SourceStats, SyncProgress } from '@shared/types';
 import { useApp } from '@/state/store';
 import { Button } from '@/components/Primitives';
@@ -10,6 +10,18 @@ import {
   type Draft, type TestResult,
 } from '@/views/Settings';
 import './misc.css';
+import './onboard.css';
+
+type Step = 'welcome' | 'kind' | 'connect' | 'sync';
+type FormStep = Exclude<Step, 'welcome'>;
+
+/** The welcome screen is a curtain, not a task, so it sits outside the numbered rail. */
+const RAIL: readonly FormStep[] = ['kind', 'connect', 'sync'];
+const RAIL_LABEL: Record<FormStep, string> = {
+  kind: 'Provider',
+  connect: 'Details',
+  sync: 'Catalogue',
+};
 
 interface KindOption { value: SourceKind; title: string; body: string; icon: LucideIcon }
 
@@ -23,7 +35,7 @@ const KINDS: readonly KindOption[] = [
   {
     value: 'm3u',
     title: 'M3U playlist',
-    body: 'A playlist URL or a file on this machine, with an optional XMLTV guide alongside it.',
+    body: 'A playlist URL or a file on this machine, with an optional XMLTV guide.',
     icon: ICON.bookmark,
   },
 ];
@@ -37,19 +49,18 @@ const PHASES = [
 ] as const;
 
 export function Onboarding() {
-  const [step, setStep] = useState<'form' | 'sync'>('form');
+  const [step, setStep] = useState<Step>('welcome');
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const { test, setTest, testing, runTest } = useSourceTest(draft);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<Source | undefined>();
   const [sync, setSync] = useState<SyncProgress | undefined>();
   const [stats, setStats] = useState<SourceStats | undefined>();
+  const accelerated = useApp((s) => s.settings.hardwareAcceleration);
   const alive = useRef(true);
 
   useEffect(() => () => { alive.current = false; }, []);
   useEffect(() => window.iptv.on('sync-progress', (p) => { if (alive.current) setSync(p); }), []);
-
-  const complete = draftComplete(draft);
 
   const startSync = useCallback(async (source: Source) => {
     try {
@@ -92,112 +103,207 @@ export function Onboarding() {
     }
   }, [added]);
 
+  const done = stats !== undefined || sync?.phase === 'done';
+
   return (
     <div className="onboard">
+      {/* With the shader off there is no ocean to sit on, so the flow brings its own tide. */}
+      {!accelerated && <div className="onboard__wash" aria-hidden />}
+
       <main className="onboard__col">
-        {step === 'form' ? (
-          <FirstSourceForm
-            draft={draft}
-            onDraft={(d) => { setDraft(d); setTest(undefined); }}
-            test={test}
-            testing={testing}
-            complete={complete}
-            adding={adding}
-            onTest={() => void runTest()}
-            onAdd={() => void add()}
-          />
-        ) : (
-          <SyncLedger
-            name={added?.name ?? draft.name}
-            sync={sync}
-            stats={stats}
-            onRetry={() => { if (added) { setSync(undefined); setStats(undefined); void startSync(added); } }}
-            onEdit={() => { setStep('form'); setSync(undefined); }}
-            onFinish={() => void finish()}
-          />
+        <section className={classNames('onboard__panel', step === 'welcome' && 'onboard__panel--hero')}>
+          {step !== 'welcome' && <Rail step={step} />}
+
+          {/* Keyed so every step, and the moment the catalogue lands, plays its own entrance. */}
+          <div className="onboard__stage" key={step === 'sync' && done ? 'landed' : step}>
+            {step === 'welcome' && <Welcome onStart={() => setStep('kind')} />}
+
+            {step === 'kind' && (
+              <PickKind onPick={(kind) => { setDraft({ ...draft, kind }); setTest(undefined); setStep('connect'); }} />
+            )}
+
+            {step === 'connect' && (
+              <Connect
+                draft={draft}
+                onDraft={(d) => { setDraft(d); setTest(undefined); }}
+                test={test}
+                testing={testing}
+                adding={adding}
+                onBack={() => { setTest(undefined); setStep('kind'); }}
+                onTest={() => void runTest()}
+                onAdd={() => void add()}
+              />
+            )}
+
+            {step === 'sync' && (
+              <Landing
+                name={added?.name ?? draft.name}
+                sync={sync}
+                stats={stats}
+                done={done}
+                onRetry={() => { if (added) { setSync(undefined); setStats(undefined); void startSync(added); } }}
+                onEdit={() => { setSync(undefined); setStep('connect'); }}
+                onFinish={() => void finish()}
+              />
+            )}
+          </div>
+        </section>
+
+        {step !== 'sync' && (
+          <p className="onboard__foot caption">
+            Everything stays on this machine. xiptv only talks to the provider you name.
+          </p>
         )}
       </main>
     </div>
   );
 }
 
-function FirstSourceForm({
-  draft, onDraft, test, testing, complete, adding, onTest, onAdd,
-}: {
-  draft: Draft;
-  onDraft: (d: Draft) => void;
-  test?: TestResult;
-  testing: boolean;
-  complete: boolean;
-  adding: boolean;
-  onTest: () => void;
-  onAdd: () => void;
-}) {
+function Rail({ step }: { step: FormStep }) {
+  const index = RAIL.indexOf(step);
   return (
     <>
-      <p className="onboard__kicker">Set up xiptv</p>
-      <h1 className="serif-2 onboard__title">Bring your own provider.</h1>
-      <p className="onboard__lede sm t-secondary">
-        xiptv ships no catalogue of its own. Point it at an Xtream account or an M3U playlist and it
-        plays whatever that provider carries.
-      </p>
-
-      <div className="onboard__kinds" role="radiogroup" aria-label="Source type">
-        {KINDS.map((k) => {
-          const on = draft.kind === k.value;
-          return (
-            <button
-              key={k.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              className={classNames('onboard__kind', on && 'onboard__kind--on')}
-              onClick={() => onDraft({ ...draft, kind: k.value })}
-            >
-              <span className="onboard__kind-top">
-                <span className="onboard__kind-glyph"><Glyph icon={k.icon} /></span>
-                <span className="onboard__kind-title h2">{k.title}</span>
-                {on && <span className="onboard__kind-check"><Glyph icon={ICON.check} size={14} /></span>}
-              </span>
-              <span className="onboard__kind-body caption t-tertiary">{k.body}</span>
-            </button>
-          );
-        })}
+      <div className="onboard__rail" aria-hidden>
+        {RAIL.map((s, i) => (
+          <span
+            key={s}
+            className="onboard__rail-seg"
+            data-state={i < index ? 'done' : i === index ? 'on' : 'off'}
+          />
+        ))}
       </div>
-
-      <SourceFields draft={draft} onChange={onDraft} />
-
-      <TestReport result={test} testing={testing} />
-
-      <div className="onboard__acts">
-        <Button variant="ghost" className="onboard__test" disabled={!complete || testing} onClick={onTest}>
-          {testing ? 'Testing' : 'Test connection'}
-        </Button>
-        <Button variant="primary" className="onboard__submit" disabled={!complete || adding} onClick={onAdd}>
-          {adding ? 'Adding' : 'Add source'}
-        </Button>
-      </div>
-
-      <p className="onboard__foot caption t-tertiary">
-        {draft.kind === 'xtream' ? 'Credentials stay on this machine. ' : ''}
-        xiptv sends nothing anywhere except to the address you type above.
+      <p className="onboard__kicker onboard__kicker--rail" key={step}>
+        {`0${index + 1} / 0${RAIL.length}`}
+        <span className="onboard__kicker-dot" aria-hidden>·</span>
+        {RAIL_LABEL[step]}
       </p>
     </>
   );
 }
 
-function SyncLedger({
-  name, sync, stats, onRetry, onEdit, onFinish,
+/** The brand mark: two currents crossing into an X. `--i` staggers the draw, blue then amber. */
+const CURRENTS = [
+  { d: 'M9 9C21 15 29 35 41 41', stroke: 'url(#xiptv-current)' },
+  { d: 'M9 41C21 35 29 15 41 9', stroke: 'var(--accent)' },
+];
+
+function BrandMark() {
+  return (
+    <div className="onboard__mark" aria-hidden>
+      <svg viewBox="0 0 50 50" fill="none">
+        <defs>
+          <linearGradient id="xiptv-current" x1="9" y1="9" x2="41" y2="41" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#1B6CA8" />
+            <stop offset="1" stopColor="#5AD2F4" />
+          </linearGradient>
+        </defs>
+        {CURRENTS.map((c, i) => (
+          <path
+            key={c.d}
+            className="onboard__current"
+            style={{ '--i': i } as CSSProperties}
+            d={c.d}
+            stroke={c.stroke}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function Welcome({ onStart }: { onStart: () => void }) {
+  return (
+    <>
+      <BrandMark />
+      <p className="onboard__kicker">Welcome to xiptv</p>
+      <h1 className="serif-1 onboard__title">Bring your own provider.</h1>
+      <p className="onboard__lede sm t-secondary">
+        xiptv carries no catalogue of its own. Point it at your Xtream account or an M3U playlist
+        and it plays live TV, films and series, with the guide alongside them.
+      </p>
+      <div className="onboard__acts">
+        <Button variant="primary" className="onboard__go" onClick={onStart}>
+          Set up your provider
+          <Glyph icon={ICON.arrowRight} size={15} />
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function PickKind({ onPick }: { onPick: (kind: SourceKind) => void }) {
+  return (
+    <>
+      <h1 className="serif-2 onboard__title">How do you connect?</h1>
+      <p className="onboard__lede sm t-secondary">Pick the kind of account your provider gave you.</p>
+      <div className="onboard__kinds">
+        {KINDS.map((k) => (
+          <button key={k.value} type="button" className="onboard__kind" onClick={() => onPick(k.value)}>
+            <span className="onboard__kind-glyph"><Glyph icon={k.icon} size={18} /></span>
+            <span className="onboard__kind-text">
+              <span className="onboard__kind-title h2">{k.title}</span>
+              <span className="onboard__kind-body caption t-tertiary">{k.body}</span>
+            </span>
+            <span className="onboard__kind-go"><Glyph icon={ICON.arrowRight} size={16} /></span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function Connect({
+  draft, onDraft, test, testing, adding, onBack, onTest, onAdd,
+}: {
+  draft: Draft;
+  onDraft: (d: Draft) => void;
+  test?: TestResult;
+  testing: boolean;
+  adding: boolean;
+  onBack: () => void;
+  onTest: () => void;
+  onAdd: () => void;
+}) {
+  const xtream = draft.kind === 'xtream';
+  const complete = draftComplete(draft);
+  return (
+    <>
+      <h1 className="serif-2 onboard__title">{xtream ? 'Your Xtream account.' : 'Your playlist.'}</h1>
+      <p className="onboard__lede sm t-secondary">
+        {xtream
+          ? 'Type what your provider sent you. It is kept on this machine.'
+          : 'Point at a playlist URL or a file on this machine. Add a guide if you have one.'}
+      </p>
+
+      <SourceFields draft={draft} onChange={onDraft} autoFocus />
+      <TestReport result={test} testing={testing} />
+
+      <div className="onboard__acts">
+        <Button variant="plain" onClick={onBack}>Back</Button>
+        <span className="onboard__spacer" />
+        <Button variant="ghost" disabled={!complete || testing} onClick={onTest}>
+          {testing ? 'Testing' : 'Test connection'}
+        </Button>
+        <Button variant="primary" disabled={!complete || adding} onClick={onAdd}>
+          {adding ? 'Adding' : 'Continue'}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function Landing({
+  name, sync, stats, done, onRetry, onEdit, onFinish,
 }: {
   name: string;
   sync?: SyncProgress;
   stats?: SourceStats;
+  done: boolean;
   onRetry: () => void;
   onEdit: () => void;
   onFinish: () => void;
 }) {
   const failed = sync?.phase === 'error';
-  const done = stats !== undefined || sync?.phase === 'done';
 
   const [index, setIndex] = useState(0);
   useEffect(() => {
@@ -206,9 +312,8 @@ function SyncLedger({
   }, [sync?.phase]);
 
   return (
-    <div className="onboard__ledger">
-      <p className="onboard__kicker">Reading your provider</p>
-      <h1 className="serif-2 onboard__title">{done ? 'Your catalogue is ready.' : 'One moment.'}</h1>
+    <>
+      <h1 className="serif-2 onboard__title">{done ? 'Your catalogue is ready.' : 'Reading your provider.'}</h1>
       <p className="onboard__lede sm t-secondary" dir="auto">{name}</p>
 
       <ul className="onboard__phases">
@@ -228,7 +333,7 @@ function SyncLedger({
         })}
       </ul>
 
-      {!failed && sync?.message && !done && (
+      {!failed && !done && sync?.message && (
         <p className="onboard__msg caption t-tertiary" dir="auto">{sync.message}</p>
       )}
 
@@ -261,15 +366,17 @@ function SyncLedger({
       <div className="onboard__acts">
         {failed ? (
           <>
-            <Button variant="ghost" className="onboard__test" onClick={onEdit}>Edit source</Button>
-            <Button variant="primary" className="onboard__submit" onClick={onRetry}>Retry</Button>
+            <Button variant="ghost" onClick={onEdit}>Edit source</Button>
+            <span className="onboard__spacer" />
+            <Button variant="primary" onClick={onRetry}>Retry</Button>
           </>
         ) : (
-          <Button variant="primary" className="onboard__submit onboard__submit--wide" disabled={!done} onClick={onFinish}>
+          <Button variant="primary" className="onboard__finish" disabled={!done} onClick={onFinish}>
             {done ? 'Start watching' : 'Reading the catalogue'}
+            {done && <Glyph icon={ICON.arrowRight} size={15} />}
           </Button>
         )}
       </div>
-    </div>
+    </>
   );
 }

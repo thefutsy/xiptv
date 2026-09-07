@@ -265,7 +265,13 @@ export function App() {
 
   if (!sources.length || firstRun) {
     return (
-      <div className={classNames('shell shell--bare', accelerated && 'shell--shader')}>
+      <div
+        className={classNames(
+          'shell shell--bare',
+          accelerated && 'shell--shader',
+          !sources.length && 'shell--onboard',
+        )}
+      >
         <ShaderBackdrop />
         <TitleBar minimal />
         <div className="shell__bare-body">{sources.length ? <SyncLedger /> : <Onboarding />}</div>

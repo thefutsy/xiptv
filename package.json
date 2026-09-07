@@ -1,6 +1,6 @@
 {
   "name": "xiptv",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "description": "Cross-platform desktop IPTV player for Xtream Codes and M3U, with an XMLTV guide and Chromecast",
   "main": "dist-electron/main/index.js",
   "author": "thefutsy",

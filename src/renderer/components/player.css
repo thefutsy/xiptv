@@ -52,6 +52,12 @@
   background: linear-gradient(180deg, var(--chrome-top), transparent);
 }
 
+/* The player draws over the whole window, traffic lights included: they start at x=16 and three
+   12px buttons 20px apart end at 68, which is exactly where the back button was landing. Same
+   inset the titlebar uses. Fullscreen hides the lights, so the inset goes with them. */
+.player__top[data-platform="mac"] { padding-inline-start: 78px; }
+:root[data-fullscreen="true"] .player__top[data-platform="mac"] { padding-inline-start: var(--s-6); }
+
 .player__back {
   flex: none;
   width: 34px;

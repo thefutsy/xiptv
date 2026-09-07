@@ -7,7 +7,7 @@ import { CastButton } from '@/components/CastBar';
 import { parseCategory } from '@/lib/catalog';
 import './titlebar.css';
 
-const PLATFORM: 'mac' | 'win' | 'linux' =
+export const PLATFORM: 'mac' | 'win' | 'linux' =
   /Mac/i.test(navigator.userAgent) ? 'mac' : /Windows/i.test(navigator.userAgent) ? 'win' : 'linux';
 export const IS_MAC = PLATFORM === 'mac';
 const MOD_KEY = IS_MAC ? '⌘K' : 'Ctrl K';

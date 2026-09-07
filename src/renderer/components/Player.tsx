@@ -11,7 +11,7 @@ import {
   Button, Kicker, LogoPlate, PauseGlyph, PlayGlyph, Poster, Spinner, Tally, Tooltip, TruncateTail,
 } from '@/components/Primitives';
 import { CastButton, toggleCastPicker } from '@/components/CastBar';
-import { IS_MAC, WindowControls } from '@/components/TitleBar';
+import { IS_MAC, PLATFORM, WindowControls } from '@/components/TitleBar';
 import { classNames, errorText, formatClock, formatDuration, isTextEntry, progressThrough } from '@/lib/format';
 import './player.css';
 
@@ -612,6 +612,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
 
       <div
         className="player__top drag"
+        data-platform={PLATFORM}
         onPointerEnter={() => setHold(true)}
         onPointerLeave={() => setHold(false)}
       >

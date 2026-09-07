@@ -68,6 +68,12 @@
 }
 .titlebar__wordmark { letter-spacing: 0.02em; }
 
+/* The traffic lights are drawn by the system and finish at x=68: a 16px origin, then three
+   12px buttons 20px apart. The bar's 78px inset clears them, but only just. The nav buttons
+   next to them are 26px boxes around a 16px glyph, so they carry 5px of their own inset; bare
+   text carries none and reads tight against the green button. This buys back the difference. */
+.titlebar[data-platform="mac"] .titlebar__wordmark { margin-inline-start: 14px; }
+
 .titlebar__nav { flex: none; display: flex; align-items: center; gap: 2px; }
 .titlebar__step {
   width: 26px; height: 26px;

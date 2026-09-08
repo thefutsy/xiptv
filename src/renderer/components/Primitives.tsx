@@ -1,9 +1,10 @@
-import { memo, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import type { Category, MediaItem } from '@shared/types';
 import { hueFromString, initialsFor, formatRating, classNames } from '@/lib/format';
 import { parseCategory } from '@/lib/catalog';
 import './primitives.css';
 
+/** The accent marker: vertical beside a selected row, horizontal as a progress fill. */
 export function Tally({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   return <span className={`tally tally--${orientation}`} aria-hidden />;
 }
@@ -16,36 +17,48 @@ const PLATE: Record<PlateSize, { w: number; h: number; maxW: number; maxH: numbe
   large: { w: 88, h: 52, maxW: 76, maxH: 40 },
 };
 
+/**
+ * Cached images can be complete before React attaches `onLoad`, so the ref checks too. The
+ * `key` on the image remounts it per source, which re-runs this on every change.
+ */
+function primedRef(setLoaded: (v: boolean) => void) {
+  return (el: HTMLImageElement | null): void => {
+    if (el && el.complete && el.naturalWidth > 0) setLoaded(true);
+  };
+}
+
+/** A channel logo over its initials. The initials are always painted; the logo fades in on top. */
 export const LogoPlate = memo(function LogoPlate({
   item, size = 'row', className,
 }: { item: Pick<MediaItem, 'logo' | 'title' | 'name'>; size?: PlateSize; className?: string }) {
   const [failed, setFailed] = useState(false);
-  const [tooSmall, setTooSmall] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const box = PLATE[size];
 
-  useEffect(() => { setFailed(false); setTooSmall(false); }, [item.logo]);
+  useEffect(() => { setFailed(false); setLoaded(false); }, [item.logo]);
 
-  const showFallback = !item.logo || failed || tooSmall;
-  const hue = hueFromString(item.title || item.name);
+  const name = item.title || item.name;
+  const hue = hueFromString(name);
+  const showImage = Boolean(item.logo) && !failed;
 
   return (
     <div
       className={classNames('plate', `plate--${size}`, className)}
       style={{ width: box.w, height: box.h }}
     >
-      {showFallback ? (
-        <span
-          className="plate__initials"
-          style={{
-            background: `linear-gradient(160deg, hsl(${hue} 30% 22%), hsl(${hue} 34% 13%))`,
-            color: `hsl(${hue} 45% 76%)`,
-          }}
-        >
-          {initialsFor(item.title || item.name)}
-        </span>
-      ) : (
+      <span
+        className="plate__initials"
+        style={{ background: `hsl(${hue} 10% 17%)`, color: `hsl(${hue} 14% 74%)` }}
+        aria-hidden
+      >
+        {initialsFor(name)}
+      </span>
+      {showImage && (
         <img
+          key={item.logo}
+          ref={primedRef(setLoaded)}
           className="plate__img"
+          data-loaded={loaded}
           src={item.logo}
           alt=""
           loading="lazy"
@@ -54,7 +67,7 @@ export const LogoPlate = memo(function LogoPlate({
           style={{ maxWidth: box.maxW, maxHeight: box.maxH }}
           onError={() => setFailed(true)}
           onLoad={(e) => {
-            if (e.currentTarget.naturalWidth < 24) setTooSmall(true);
+            if (e.currentTarget.naturalWidth < 24) setFailed(true); else setLoaded(true);
           }}
         />
       )}
@@ -62,35 +75,34 @@ export const LogoPlate = memo(function LogoPlate({
   );
 });
 
+/** Artwork over a titled placeholder. The placeholder is always painted; the image fades in. */
 export const Poster = memo(function Poster({
   item, className, style,
 }: { item: Pick<MediaItem, 'logo' | 'title' | 'name'>; className?: string; style?: CSSProperties }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [item.logo]);
-  const hue = hueFromString(item.title || item.name);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setFailed(false); setLoaded(false); }, [item.logo]);
 
-  if (!item.logo || failed) {
-    return (
-      <div className={classNames('poster poster--empty', className)} style={style}>
-        <div
-          className="poster__duotone"
-          style={{ background: `linear-gradient(165deg, hsl(${hue} 26% 20%), hsl(${hue} 30% 10%))` }}
-        />
-        <span className="poster__title serif-2">{item.title || item.name}</span>
-      </div>
-    );
-  }
+  const showImage = Boolean(item.logo) && !failed;
+
   return (
-    <img
-      className={classNames('poster', className)}
-      style={style}
-      src={item.logo}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      draggable={false}
-      onError={() => setFailed(true)}
-    />
+    <div className={classNames('poster', showImage && loaded && 'poster--loaded', className)} style={style}>
+      <span className="poster__fallback" dir="auto">{item.title || item.name}</span>
+      {showImage && (
+        <img
+          key={item.logo}
+          ref={primedRef(setLoaded)}
+          className="poster__img"
+          src={item.logo}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
   );
 });
 
@@ -112,41 +124,49 @@ export function TruncateTail({ text, className }: { text: string; className?: st
   );
 }
 
+/** "MULTISUB" reads as a word, "UK" as a code. */
+export function prefixWord(chip: string): string {
+  return chip.length > 3 ? chip.charAt(0) + chip.slice(1).toLowerCase() : chip;
+}
+
+/** The category's cleaned label, with the provider's prefix demoted to a quiet word after it. */
 export function CategoryLabel({ category }: { category: Category }) {
   const parsed = parseCategory(category);
   return (
     <span className="catlabel" data-raw={parsed.raw}>
-      {parsed.chips.map((chip) => (
-        <span key={chip} className="chip micro">{chip}</span>
-      ))}
-      <span className="truncate">{parsed.label}</span>
+      <span className="truncate" dir="auto">{parsed.label}</span>
+      {parsed.chips.length > 0 && (
+        <span className="catlabel__prefix">{parsed.chips.map(prefixWord).join(' ')}</span>
+      )}
     </span>
   );
 }
 
+/** One secondary line of facts: "2024 · ★ 7.6". */
 export function Kicker({ parts, rating, className }: { parts: Array<string | number | undefined | false>; rating?: number; className?: string }) {
   const clean = parts.filter((p): p is string | number => p !== undefined && p !== false && p !== '');
   const stars = formatRating(rating);
   if (!clean.length && !stars) return null;
   return (
     <span className={classNames('kicker-line data', className)}>
-      {stars && (
-        <span className="kicker-rating">
-          <span className="kicker-star">★</span>
-          <span className={rating && rating >= 7.5 ? 'kicker-rating--high' : undefined}>{stars}</span>
-        </span>
-      )}
       {clean.map((p, i) => (
         <span key={i}>{p}</span>
       ))}
+      {stars && (
+        <span className="kicker-rating">
+          <span className="kicker-star" aria-hidden>★</span>
+          {stars}
+        </span>
+      )}
     </span>
   );
 }
 
+/** A quiet raised box that says what is missing, so nothing is ever an empty hole. */
 export function Absence({ label, className, style }: { label?: string; className?: string; style?: CSSProperties }) {
   return (
     <div className={classNames('absence', className)} style={style}>
-      {label && <span className="absence__label micro">{label}</span>}
+      {label && <span className="absence__label sm">{label}</span>}
     </div>
   );
 }
@@ -157,8 +177,8 @@ export function EmptyState({
   return (
     <div className="empty">
       <div className="empty__glyph">{glyph}</div>
-      <h2 className="serif-2">{title}</h2>
-      <p className="empty__body sm t-secondary">{body}</p>
+      <h2 className="t-title">{title}</h2>
+      <p className="empty__body t-secondary">{body}</p>
       {action}
     </div>
   );
@@ -170,6 +190,7 @@ export function Skeleton({ width, height, radius, style }: { width?: number | st
 
 type ButtonVariant = 'primary' | 'ghost' | 'plain' | 'danger';
 
+/** primary: the accent. ghost: a filled quiet button. plain: text only. */
 export function Button({
   variant = 'plain', children, className, ...rest
 }: { variant?: ButtonVariant } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -184,14 +205,15 @@ export function Tooltip({ label, children, placement = 'bottom' }: { label: stri
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const show = useCallback(() => { timer.current = setTimeout(() => setOpen(true), 380); }, []);
   return (
     <span
       className="tip-anchor"
-      onPointerEnter={() => { timer.current = setTimeout(() => setOpen(true), 380); }}
+      onPointerEnter={show}
       onPointerLeave={() => { clearTimeout(timer.current); setOpen(false); }}
     >
       {children}
-      {open && <span className={`tip tip--${placement} micro`} role="tooltip">{label}</span>}
+      {open && <span className={`tip tip--${placement} sm`} role="tooltip">{label}</span>}
     </span>
   );
 }

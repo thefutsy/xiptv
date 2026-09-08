@@ -3,7 +3,7 @@ import type { MediaItem, WatchProgress } from '@shared/types';
 import { useApp } from '@/state/store';
 import { Absence, Button, EmptyState, Kicker, Skeleton, TruncateTail, Tally } from '@/components/Primitives';
 import { Glyph, ICON, Segmented, playItem } from '@/components/CommandPalette';
-import { MediaRow, PosterCard } from '@/components/Results';
+import { kindWord, MediaRow, PosterCard } from '@/components/Results';
 import { VGrid, VList } from '@/lib/virtual';
 import { useGridMetrics } from '@/lib/metrics';
 import { countKinds, hasMixedKinds, prefersRows, sortItems, type KindTab, type SortKey } from '@/lib/catalog';
@@ -76,8 +76,8 @@ function Favourites() {
       <div className="mx-head__titles">
         <h1 className="h1">Favourites</h1>
         <p className="mx-head__count data">
-          {counts.all.toLocaleString()} starred
-          {counts.live > 0 && <> · {counts.live.toLocaleString()} channels</>}
+          {counts.all.toLocaleString()} {counts.all === 1 ? 'title' : 'titles'}
+          {counts.live > 0 && counts.live !== counts.all && <> · {counts.live.toLocaleString()} {counts.live === 1 ? 'channel' : 'channels'}</>}
         </p>
       </div>
       <span className="mx-head__spacer" />
@@ -85,7 +85,7 @@ function Favourites() {
         <>
           <Segmented label="Favourite kind" value={tab} options={tabs} onChange={setTab} />
           <label className="mx-select">
-            <span className="mx-select__label micro">Sort</span>
+            <span className="mx-select__label">Sort</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
               {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
@@ -302,7 +302,7 @@ function ContinueRow({
   const [broken, setBroken] = useState(false);
   const through = entry.duration > 0 ? progressThrough(0, entry.duration, entry.position) : 0;
   const left = Math.max(0, entry.duration - entry.position);
-  const kindLabel = entry.kind === 'live' ? 'CHANNEL' : entry.kind === 'movie' ? 'MOVIE' : 'SERIES';
+  const minutesLeft = Math.round(left / 60);
 
   return (
     <div className="library__cont">
@@ -322,16 +322,18 @@ function ContinueRow({
           <TruncateTail text={entry.title} className="library__cont-name" />
           <Kicker
             className="library__cont-kicker"
-            parts={[formatDuration(entry.position), entry.duration > 0 && formatDuration(entry.duration)]}
+            parts={[
+              entry.duration > 0 && `${minutesLeft.toLocaleString()} min left`,
+              entry.duration > 0
+                ? `${formatDuration(entry.position)} of ${formatDuration(entry.duration)}`
+                : formatDuration(entry.position),
+            ]}
           />
         </span>
       </button>
 
       <div className="library__cont-end">
-        <span className="mx-chip micro">{kindLabel}</span>
-        {entry.duration > 0 && (
-          <span className="library__left data">{Math.round(left / 60).toLocaleString()} min left</span>
-        )}
+        <span className="mx-kind">{kindWord(entry.kind)}</span>
         <div className="library__cont-act">
           <Button variant="ghost" onClick={() => void onResume(entry)}>
             <Glyph icon={ICON.play} />Resume

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Clapperboard, History, MonitorPlay, Search, Settings as SettingsIcon, Star, Tv, type LucideIcon,
 } from 'lucide-react';
 import { useApp, type Route } from '@/state/store';
-import { Tally, Tooltip } from '@/components/Primitives';
+import { Tooltip } from '@/components/Primitives';
 import './navrail.css';
 
 interface NavItem { key: string; label: string; short?: string; Icon: LucideIcon; route: Route }
@@ -32,15 +31,9 @@ function activeKey(route: Route): string {
   }
 }
 
-function Item({ item, active, register, tip }: {
-  item: NavItem;
-  active: boolean;
-  register: (key: string, el: HTMLElement | null) => void;
-  tip?: string;
-}) {
+function Item({ item, active, tip }: { item: NavItem; active: boolean; tip?: string }) {
   const button = (
     <button
-      ref={(el) => { register(item.key, el); }}
       className="navrail__item"
       data-active={active}
       aria-current={active ? 'page' : undefined}
@@ -58,60 +51,20 @@ export function NavRail() {
   const route = useApp((s) => s.route);
   const active = activeKey(route);
 
-  const railRef = useRef<HTMLElement>(null);
-  const items = useRef(new Map<string, HTMLElement>());
-  const [offset, setOffset] = useState<number | null>(null);
-  const [primed, setPrimed] = useState(false);
-
-  const register = useCallback((key: string, el: HTMLElement | null): void => {
-    if (el) items.current.set(key, el); else items.current.delete(key);
-  }, []);
-
-  const measure = useCallback((): void => {
-    const el = items.current.get(active);
-    const rail = railRef.current;
-    if (!el || !rail) { setOffset(null); return; }
-    setOffset(el.getBoundingClientRect().top - rail.getBoundingClientRect().top);
-  }, [active]);
-
-  useLayoutEffect(measure, [measure]);
-  useEffect(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(rail);
-    return () => ro.disconnect();
-  }, [measure]);
-  useEffect(() => { if (offset !== null) setPrimed(true); }, [offset]);
-
   return (
-    <nav ref={railRef} className="navrail" aria-label="Sections">
-      {offset !== null && (
-        <span className="navrail__marker" data-primed={primed} style={{ transform: `translateY(${offset}px)` }}>
-          <Tally />
-        </span>
-      )}
-
+    <nav className="navrail" aria-label="Sections">
       <div className="navrail__groups">
         {GROUPS.map((group, i) => (
           <div className="navrail__group" key={i}>
-            {i > 0 && <span className="navrail__rule" aria-hidden />}
             {group.map((item) => (
-              <Item
-                key={item.key}
-                item={item}
-                active={active === item.key}
-                register={register}
-                tip={item.short && item.label}
-              />
+              <Item key={item.key} item={item} active={active === item.key} tip={item.short && item.label} />
             ))}
           </div>
         ))}
       </div>
 
       <div className="navrail__foot">
-        <span className="navrail__rule" aria-hidden />
-        <Item item={SETTINGS} active={active === SETTINGS.key} register={register} />
+        <Item item={SETTINGS} active={active === SETTINGS.key} />
       </div>
     </nav>
   );

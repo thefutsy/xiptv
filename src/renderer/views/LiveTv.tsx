@@ -327,10 +327,14 @@ export function LiveTv() {
     <header className="live__header">
       <div className="live__heading">
         <h1 className="h1 truncate">Live TV</h1>
-        <div className="live__count caption t-tertiary">
+        <div className="live__count">
           {category ? <CategoryLabel category={category} /> : <span>All categories</span>}
-          <span className="live__dot-sep">·</span>
-          <span className="data">{rows.length.toLocaleString()} channels</span>
+          {selectedId && (
+            <>
+              <span className="live__dot-sep">·</span>
+              <span className="data">{rows.length.toLocaleString()} channels</span>
+            </>
+          )}
           {folded > 0 && (
             <>
               <span className="live__dot-sep">·</span>
@@ -354,17 +358,17 @@ export function LiveTv() {
         <div className="live__seg" role="tablist" aria-label="Live TV layout">
           <button
             type="button" role="tab" aria-selected={mode === 'list'}
-            className={classNames('live__seg-btn sm', mode === 'list' && 'is-on')}
+            className={classNames('live__seg-btn', mode === 'list' && 'is-on')}
             onClick={() => setMode('list')}
           >
-            <Rows3 size={14} strokeWidth={1.5} />List
+            <Rows3 size={15} strokeWidth={1.5} />List
           </button>
           <button
             type="button" role="tab" aria-selected={mode === 'guide'}
-            className={classNames('live__seg-btn sm', mode === 'guide' && 'is-on')}
+            className={classNames('live__seg-btn', mode === 'guide' && 'is-on')}
             onClick={() => setMode('guide')}
           >
-            <CalendarClock size={14} strokeWidth={1.5} />Guide
+            <CalendarClock size={15} strokeWidth={1.5} />Guide
           </button>
         </div>
       </div>
@@ -548,7 +552,7 @@ function GuidePicker({ sourceId, item, onClose, onDone }: {
   return (
     <div className="live__picker-veil" onPointerDown={onClose}>
       <div className="live__picker" role="dialog" aria-label="Set guide channel" onPointerDown={(e) => e.stopPropagation()}>
-        <span className="kicker">Guide channel for</span>
+        <span className="sm t-tertiary">Guide channel for</span>
         <span className="live__picker-name h2 truncate" dir="auto">{item.title || item.name}</span>
         <input
           className="live__picker-input"
@@ -567,7 +571,7 @@ function GuidePicker({ sourceId, item, onClose, onDone }: {
                 onClick={() => void choose(o.id)}
               >
                 <span className="live__picker-opt-name truncate" dir="auto">{o.name}</span>
-                <span className="live__picker-opt-meta micro t-tertiary truncate">{o.feed} · {o.id}</span>
+                <span className="live__picker-opt-meta sm t-tertiary truncate">{o.feed} · {o.id}</span>
               </button>
             </li>
           ))}
@@ -621,10 +625,7 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
 
   return (
     <div
-      className={classNames('live__row', current && 'live__row--epg')}
-      style={current
-        ? { '--live-pct': `${progressThrough(current.start, current.stop, p.now) * 100}%` } as CSSProperties
-        : undefined}
+      className="live__row"
       data-playing={p.playing || undefined}
       data-focused={p.focused || undefined}
       data-failed={p.failed || undefined}
@@ -636,23 +637,30 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
         else p.onPlay(item);
       }}
     >
-      {p.playing && <Tally />}
       <LogoPlate item={item} size="row" className="live__plate" />
 
       <div className="live__name">
         <span className="live__nameline">
           {p.failed && <span className="live__warn" aria-label="Recently failed" />}
           <TruncateTail text={label} className="live__title" />
-          {quality && <span className="chip micro live__q">{quality}</span>}
+          {quality && <span className="live__q">{quality}</span>}
         </span>
 
         {current ? (
-          <span className="live__prog sm truncate" dir="auto">{current.title}</span>
+          <span className="live__prog truncate" dir="auto">{current.title}</span>
         ) : loading ? (
-          <span className="live__prog"><Skeleton width={90} height={10} radius={2} /></span>
+          <span className="live__prog"><Skeleton width={90} height={10} radius={2} style={{ marginTop: 4 }} /></span>
         ) : (
-          /* Holds the second grid row so the channel name keeps its baseline. */
-          <span className="live__prog live__prog--none sm" aria-hidden>—</span>
+          <span className="live__prog live__prog--none">No guide data</span>
+        )}
+
+        {current && (
+          <span className="live__bar" aria-hidden>
+            <span
+              className="live__bar-fill"
+              style={{ width: `${progressThrough(current.start, current.stop, p.now) * 100}%` }}
+            />
+          </span>
         )}
       </div>
 
@@ -672,11 +680,8 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
           </span>
         )}
 
-        <span className={classNames('live__times', !current && 'live__times--empty')}>
-          <span className="data">
-            {current ? `${formatClock(current.start)} – ${formatClock(current.stop)}` : '–'}
-          </span>
-          <span className="live__left">{current ? remainingLabel(current.stop, p.now) : ''}</span>
+        <span className={classNames('live__times data', !current && 'live__times--empty')}>
+          {current ? `${formatClock(current.start)} – ${formatClock(current.stop)}` : '–'}
         </span>
 
         <span className="live__acts">
@@ -742,7 +747,7 @@ function RowMenu({
         <Copy size={14} strokeWidth={1.5} />Copy raw name
       </button>
       <span className="live__menu-rule" />
-      <span className="live__menu-raw micro t-tertiary" dir="auto">{item.name}</span>
+      <span className="live__menu-raw sm" dir="auto">{item.name}</span>
     </div>
   );
 }
@@ -763,13 +768,13 @@ function PreviewPanel({
 
   return (
     <aside className="live__preview">
-      <span className="kicker live__preview-kicker">{playing ? 'On air' : failed ? 'Last attempt' : 'Selected'}</span>
+      <span className="live__preview-kicker">{playing ? 'Playing now' : failed ? 'Last attempt' : 'Selected'}</span>
 
       <div className="live__preview-head">
         <LogoPlate item={item} size="large" />
         <div className="live__preview-id">
           <TruncateTail text={withoutQuality(item.title || item.name, qualityTag(item.name))} className="h2" />
-          <span className="live__preview-raw micro t-tertiary truncate" dir="auto">{item.name}</span>
+          <span className="live__preview-raw sm t-tertiary truncate" dir="auto">{item.name}</span>
         </div>
       </div>
 
@@ -777,7 +782,7 @@ function PreviewPanel({
         <div className="live__fail">
           <TriangleAlert size={20} strokeWidth={1.5} className="live__fail-glyph" />
           <h2 className="h2">This channel did not respond</h2>
-          <p className="sm t-secondary">
+          <p className="t-secondary">
             The provider accepted the request and then sent nothing playable. It is almost always the
             stream rather than your connection. A backup variant usually works.
           </p>
@@ -798,7 +803,7 @@ function PreviewPanel({
         <>
           {current ? (
             <div className="live__preview-now">
-              <span className="kicker">{formatClock(current.start)} – {formatClock(current.stop)}</span>
+              <span className="live__preview-time data">{formatClock(current.start)} – {formatClock(current.stop)}</span>
               <span className="live__preview-title" dir="auto">{current.title}</span>
               <span className="live__track live__track--wide">
                 <span
@@ -806,11 +811,11 @@ function PreviewPanel({
                   style={{ width: `${progressThrough(current.start, current.stop, now) * 100}%` }}
                 />
               </span>
-              <span className="caption t-tertiary">{remainingLabel(current.stop, now)}</span>
-              {current.description && <p className="live__preview-plot sm t-secondary">{current.description}</p>}
+              <span className="live__preview-left data">{remainingLabel(current.stop, now)}</span>
+              {current.description && <p className="live__preview-plot" dir="auto">{current.description}</p>}
               {nn?.next && (
-                <p className="caption t-tertiary live__preview-next">
-                  Next · {formatClock(nn.next.start)} <span className="t-secondary">{nn.next.title}</span>
+                <p className="live__preview-next">
+                  Next at {formatClock(nn.next.start)} <span className="t-secondary" dir="auto">{nn.next.title}</span>
                 </p>
               )}
             </div>
@@ -822,7 +827,7 @@ function PreviewPanel({
             <Button variant="primary" onClick={() => onPlay(item)} disabled={tuning}>
               <Play size={16} strokeWidth={1.5} />{tuning ? 'Tuning' : playing ? 'Playing' : 'Play'}
             </Button>
-            <Button variant="ghost" onClick={() => onFavourite(item)}>
+            <Button variant="plain" onClick={() => onFavourite(item)}>
               <Star size={16} strokeWidth={1.5} fill={favourite ? 'currentColor' : 'none'} />
               {favourite ? 'Favourited' : 'Favourite'}
             </Button>
@@ -928,7 +933,7 @@ function LandingBlock({ title, count, children }: { title: string; count: string
   return (
     <section className="live__block">
       <header className="live__block-head">
-        <h2 className="serif-2">{title}</h2>
+        <h2 className="t-title">{title}</h2>
         <span className="kicker">{count}</span>
       </header>
       <div className="live__block-grid">{children}</div>
@@ -943,7 +948,7 @@ function SkeletonList({ rowHeight }: { rowHeight: number }) {
         <div className="live__row" key={i} style={{ height: rowHeight } as CSSProperties}>
           <Skeleton width={56} height={34} radius={6} style={{ animationDelay: `${i * 120}ms`, flex: 'none' }} />
           <div className="live__name">
-            <Skeleton width={i % 3 === 0 ? 260 : 180} height={12} radius={3} style={{ animationDelay: `${i * 120}ms` }} />
+            <Skeleton width={i % 3 === 0 ? 260 : 180} height={12} radius={3} style={{ animationDelay: `${i * 120}ms`, marginTop: 4 }} />
           </div>
           <div className="live__right"><Skeleton width={96} height={12} radius={3} style={{ animationDelay: `${i * 120}ms` }} /></div>
         </div>

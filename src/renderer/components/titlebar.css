@@ -8,7 +8,6 @@
 .shell--bare { grid-template-rows: var(--h-titlebar) minmax(0, 1fr); }
 
 :root[data-fullscreen="true"] .shell { grid-template-rows: 0 minmax(0, 1fr) auto; }
-
 :root[data-fullscreen="true"] .titlebar { display: none; }
 
 .shell__body { display: flex; min-width: 0; min-height: 0; }
@@ -31,19 +30,9 @@
   background: var(--bg-surface);
   overflow-y: auto;
   overflow-x: hidden;
-  animation: route-in var(--dur-3) var(--ease-standard) both;
+  animation: route-in var(--dur) var(--ease) both;
 }
-
-@keyframes route-in {
-  0%   { opacity: 0; transform: translateY(6px); }
-  17%  { transform: translateY(6px); }
-  74%  { opacity: 1; }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes route-fade { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .shell__content { animation-name: route-fade; }
-}
+@keyframes route-in { from { opacity: 0; } to { opacity: 1; } }
 
 .titlebar {
   position: relative;
@@ -52,10 +41,8 @@
   display: flex;
   align-items: center;
   background: var(--bg-app);
-  box-shadow: var(--seam-bottom);
   padding-inline-start: 12px;
 }
-
 .titlebar[data-platform="mac"] { padding-inline-start: 78px; padding-inline-end: 12px; }
 
 .titlebar__start {
@@ -66,12 +53,7 @@
   gap: 10px;
   max-width: calc(50% - 152px);
 }
-.titlebar__wordmark { letter-spacing: 0.02em; }
-
-/* The traffic lights are drawn by the system and finish at x=68: a 16px origin, then three
-   12px buttons 20px apart. The bar's 78px inset clears them, but only just. The nav buttons
-   next to them are 26px boxes around a 16px glyph, so they carry 5px of their own inset; bare
-   text carries none and reads tight against the green button. This buys back the difference. */
+.titlebar__wordmark { color: var(--text-tertiary); }
 .titlebar[data-platform="mac"] .titlebar__wordmark { margin-inline-start: 14px; }
 
 .titlebar__nav { flex: none; display: flex; align-items: center; gap: 2px; }
@@ -80,53 +62,39 @@
   display: grid; place-items: center;
   border-radius: var(--r-row);
   color: var(--text-tertiary);
-  transition: background-color var(--dur-1) var(--ease-micro), color var(--dur-1) var(--ease-micro),
-              transform 200ms var(--ease-out);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.titlebar__step:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
-.titlebar__step:active:not(:disabled) { transform: translateY(0.5px); transition: transform 80ms var(--ease-in); }
+.titlebar__step:hover:not(:disabled) { background: var(--bg-raised); color: var(--text-primary); }
 .titlebar__step:disabled { color: var(--text-disabled); }
 
 .titlebar__crumbs { display: flex; align-items: center; min-width: 0; overflow: hidden; color: var(--text-secondary); }
 .titlebar__crumb { display: flex; align-items: center; min-width: 0; }
 .titlebar__crumb:first-child { flex: none; }
 .titlebar__crumb[data-leaf="true"] { color: var(--text-primary); }
-.titlebar__slash { flex: none; margin-inline: 7px; color: var(--text-separator); }
+.titlebar__slash { flex: none; margin-inline: 8px; color: var(--text-tertiary); }
 
 .titlebar__search {
   position: absolute;
   left: 50%;
   translate: -50% 0;
   width: 280px;
-  height: 26px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding-inline: 8px;
+  gap: 8px;
+  padding-inline: 10px;
   background: var(--bg-raised);
-  border: 1px solid var(--border-line);
   border-radius: var(--r-control);
   color: var(--text-secondary);
-  transition: background-color var(--dur-1) var(--ease-micro), border-color var(--dur-1) var(--ease-micro),
-              transform 200ms var(--ease-out);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.titlebar__search:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-.titlebar__search:active { transform: translateY(0.5px); transition: transform 80ms var(--ease-in); }
+.titlebar__search:hover { background: var(--bg-hover); color: var(--text-primary); }
 .titlebar__search-glyph { flex: none; color: var(--text-tertiary); }
 .titlebar__search-label { flex: 1 1 auto; text-align: start; }
-.titlebar__chip {
-  flex: none;
-  padding: 3px 5px;
-  background: var(--bg-active);
-  border-radius: var(--r-chip);
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: 1;
-}
+.titlebar__chip { flex: none; color: var(--text-tertiary); font-size: var(--fs-micro); line-height: 1; }
 
 .titlebar__end { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
-.titlebar__divider { flex: none; width: 1px; height: 16px; margin-inline: 12px; background: var(--border-hairline); }
+.titlebar__divider { flex: none; width: 12px; }
 
 .titlebar__controls { flex: none; display: flex; }
 .titlebar__wc {
@@ -134,13 +102,14 @@
   height: var(--h-titlebar);
   display: grid; place-items: center;
   color: var(--text-secondary);
-  transition: background-color var(--dur-1) var(--ease-micro), color var(--dur-1) var(--ease-micro);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .titlebar__wc:hover { background: var(--bg-hover); color: var(--text-primary); }
-.titlebar__wc--close:hover { background: var(--danger-fill); color: var(--text-primary); }
+.titlebar__wc--close:hover { background: var(--danger); color: var(--text-primary); }
 
+/* First-run ledger: "Reading your provider". */
 .ledger {
-  width: 420px;
+  width: 440px;
   min-height: 100%;
   margin: 0 auto;
   padding-block: 48px;
@@ -150,36 +119,26 @@
 }
 .ledger__source { margin-top: 6px; }
 
-.ledger__rows { margin-top: 28px; }
+.ledger__rows { margin-top: 32px; display: flex; flex-direction: column; gap: 4px; }
 .ledger__row {
-  height: 34px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid var(--border-hairline);
+  padding-inline: 14px;
+  border-radius: var(--r-control);
+  background: var(--bg-surface);
 }
-.ledger__row:last-child { border-bottom: 0; }
 
-.ledger__label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: var(--lh-micro);
-  letter-spacing: var(--ls-kicker);
-  text-transform: uppercase;
-  color: var(--text-disabled);
-  transition: color var(--dur-2) var(--ease-micro);
-}
+.ledger__label { color: var(--text-tertiary); transition: color var(--dur) var(--ease); }
 .ledger__row[data-state="active"] .ledger__label,
-.ledger__row[data-state="done"] .ledger__label { color: var(--text-secondary); }
+.ledger__row[data-state="done"] .ledger__label { color: var(--text-primary); }
 .ledger__row[data-state="error"] .ledger__label { color: var(--danger); }
 
 .ledger__state { display: flex; align-items: center; justify-content: flex-end; min-width: 140px; }
-.ledger__pending { font-family: var(--font-mono); color: var(--text-disabled); letter-spacing: 0.16em; }
-.ledger__failed {
-  font-family: var(--font-mono); font-size: var(--fs-micro);
-  letter-spacing: var(--ls-kicker); text-transform: uppercase; color: var(--danger);
-}
+.ledger__pending { color: var(--text-disabled); letter-spacing: 0.16em; }
+.ledger__failed { color: var(--danger); font-size: var(--fs-sm); }
 
 .ledger__track {
   position: relative;
@@ -195,25 +154,20 @@
   width: 100%;
   transform: scaleX(0);
   transform-origin: 0 50%;
-  transition: transform var(--dur-3) var(--ease-standard);
+  transition: transform 240ms var(--ease);
 }
-
 .ledger__track[data-indeterminate="true"] .ledger__bar {
   width: 30%;
   transform: none;
   transition: none;
-  animation: ledger-sweep 1400ms var(--ease-micro) infinite;
+  animation: ledger-sweep 1400ms var(--ease) infinite;
 }
 @keyframes ledger-sweep { from { transform: translateX(-110%); } to { transform: translateX(366%); } }
 
-.ledger__done {
-  display: inline-flex; align-items: center; gap: 6px;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono); font-size: var(--fs-data); letter-spacing: var(--ls-data);
-}
-.ledger__done > svg { color: var(--status-ok); }
+.ledger__done { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.ledger__done > svg { color: var(--accent); }
 
-.ledger__message { margin-top: 18px; }
+.ledger__message { margin-top: 20px; }
 .ledger__error { margin-top: 10px; color: var(--danger); max-width: 44ch; }
 .ledger__actions { margin-top: 20px; display: flex; gap: 10px; }
 

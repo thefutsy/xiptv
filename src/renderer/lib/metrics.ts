@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { columnsFor } from '@/lib/virtual';
 
-export const CAPTION_H = 64;
+/* 10px above, a 20px title line, 2px, an 18px facts line, 2px below. Matches .mcard__caption. */
+export const CAPTION_H = 52;
 const SCROLLBAR = 10;
 
 export function px(style: CSSStyleDeclaration, name: string, fallback: number): number {
@@ -47,11 +48,11 @@ export function useGridMetrics(ref: RefObject<HTMLElement | null>): GridMetrics 
 
   return useMemo(() => {
     const style = getComputedStyle(document.documentElement);
-    const min = px(style, '--grid-min', 152);
-    const gapX = px(style, '--grid-gap-x', 18);
-    const gapY = px(style, '--grid-gap-y', 26);
-    const pad = px(style, '--pad-page', 28);
-    const listRowH = px(style, '--row-h', 56);
+    const min = px(style, '--grid-min', 168);
+    const gapX = px(style, '--grid-gap-x', 20);
+    const gapY = px(style, '--grid-gap-y', 28);
+    const pad = px(style, '--pad-page', 32);
+    const listRowH = px(style, '--row-h-list', 64);
     const usable = width - SCROLLBAR;
     const inner = Math.max(0, usable - pad * 2);
     const columns = columnsFor(usable, min, gapX, pad);

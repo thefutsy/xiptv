@@ -156,7 +156,7 @@ export function TitleBar({ minimal = false }: { minimal?: boolean }) {
           className="titlebar__search no-drag"
           onClick={() => useApp.getState().patch({ paletteOpen: true })}
         >
-          <Search className="titlebar__search-glyph" size={14} strokeWidth={1.5} />
+          <Search className="titlebar__search-glyph" size={15} strokeWidth={1.5} />
           <span className="titlebar__search-label sm">Search</span>
           <span className="titlebar__chip">{MOD_KEY}</span>
         </button>

@@ -10,7 +10,6 @@ import { ContextColumn } from '@/components/ContextColumn';
 import { Toast } from '@/components/Toast';
 import { CastBar } from '@/components/CastBar';
 import { CommandPalette } from '@/components/CommandPalette';
-import { ShaderBackdrop } from '@/components/ShaderBackdrop';
 import { EpgGuide } from '@/components/EpgGuide';
 import { Player } from '@/components/Player';
 import { Onboarding } from '@/views/Onboarding';
@@ -166,8 +165,8 @@ function SyncLedger() {
 
   return (
     <div className="ledger">
-      <h1 className="serif-2">Reading your provider</h1>
-      {source && <p className="ledger__source sm t-secondary">{source.name}</p>}
+      <h1 className="h1">Reading your provider</h1>
+      {source && <p className="ledger__source t-secondary">{source.name}</p>}
 
       <ol className="ledger__rows">
         {LEDGER.map((row, i) => {
@@ -200,11 +199,11 @@ function SyncLedger() {
         })}
       </ol>
 
-      <p className="ledger__message caption t-tertiary">{sync?.message ?? 'Contacting the provider…'}</p>
+      <p className="ledger__message sm t-tertiary">{sync?.message ?? 'Contacting the provider…'}</p>
 
       {failed && (
         <>
-          <p className="ledger__error sm">{sync?.error ?? 'The provider refused the request.'}</p>
+          <p className="ledger__error">{sync?.error ?? 'The provider refused the request.'}</p>
           <div className="ledger__actions">
             <Button variant="primary" onClick={retry}><RotateCw size={14} strokeWidth={1.5} />Retry</Button>
             <Button variant="ghost" onClick={() => useApp.getState().navigate({ view: 'settings' })}>Edit source</Button>
@@ -233,7 +232,6 @@ export function App() {
   const paletteOpen = useApp((s) => s.paletteOpen);
   const nowPlaying = useApp((s) => s.nowPlaying);
   const casting = useApp((s) => s.cast.connected);
-  const accelerated = useApp((s) => s.settings.hardwareAcceleration);
 
   useBootstrap();
   useMainEvents();
@@ -258,25 +256,16 @@ export function App() {
       <div className="shell shell--bare">
         <TitleBar minimal />
         <div className="shell__bare-body" />
-        <div className="grain" />
       </div>
     );
   }
 
   if (!sources.length || firstRun) {
     return (
-      <div
-        className={classNames(
-          'shell shell--bare',
-          accelerated && 'shell--shader',
-          !sources.length && 'shell--onboard',
-        )}
-      >
-        <ShaderBackdrop />
+      <div className={classNames('shell shell--bare', !sources.length && 'shell--onboard')}>
         <TitleBar minimal />
         <div className="shell__bare-body">{sources.length ? <SyncLedger /> : <Onboarding />}</div>
         <Toast />
-        <div className="grain" />
       </div>
     );
   }
@@ -284,12 +273,7 @@ export function App() {
   const showContext = !contextHidden && CONTEXT_ROUTES.has(route.view);
 
   return (
-    <div
-      className={classNames('shell', accelerated && 'shell--shader')}
-      data-castbar={casting}
-      data-playing={!!nowPlaying}
-    >
-      <ShaderBackdrop />
+    <div className="shell" data-castbar={casting} data-playing={!!nowPlaying}>
       <TitleBar />
       <div className="shell__body">
         <NavRail />
@@ -300,7 +284,6 @@ export function App() {
       {nowPlaying && <Player />}
       {paletteOpen && <CommandPalette />}
       <Toast />
-      <div className="grain" />
     </div>
   );
 }

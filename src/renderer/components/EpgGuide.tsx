@@ -506,14 +506,14 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
       <div className="guide__chrome">
         <input
           ref={filterRef}
-          className="guide__filter sm"
+          className="guide__filter"
           value={query}
           spellCheck={false}
           placeholder="Filter channels"
           aria-label="Filter channels"
           onChange={(e) => setQuery(e.target.value)}
         />
-        <span className="guide__scope sm t-secondary truncate">{scopeLabel}</span>
+        <span className="guide__scope t-secondary truncate">{scopeLabel}</span>
         <Tooltip label={`${withData.length.toLocaleString()} of ${all.length.toLocaleString()} channels have guide data`}>
           <span className="guide__gcount data t-tertiary">
             {withData.length.toLocaleString()}/{all.length.toLocaleString()}
@@ -525,7 +525,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
             <button
               key={d.index}
               type="button"
-              className={classNames('guide__day sm', d.index === activeDay && 'is-on')}
+              className={classNames('guide__day', d.index === activeDay && 'is-on')}
               onClick={() => scrollTo(d.index === 0
                 ? Math.max(0, nowMin * ppm - view.width * 0.25)
                 : d.index * DAY_MIN * ppm)}
@@ -606,6 +606,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                     focusMin={ring && index === focus.row ? focus.min : undefined}
                     absenceLeft={gutter + Math.max(0, timelineLeft - H_OVERSCAN)}
                     absenceWidth={view.width + H_OVERSCAN * 2}
+                    voidLabelLeft={gutter + timelineLeft + 12}
                     onTune={tune}
                     onArchive={playFromStart}
                     onInfo={(prog) => setInfo({ item, prog })}
@@ -624,7 +625,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
       )}
 
       {playheadOffscreen && channels.length > 0 && (
-        <button type="button" className="guide__now sm" onClick={jumpToNow}>Now</button>
+        <button type="button" className="guide__now" onClick={jumpToNow}>Now</button>
       )}
 
       {tip && (
@@ -640,10 +641,10 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
             <LogoPlate item={info.item} size="large" />
             <TruncateTail text={info.item.title || info.item.name} className="h2" />
           </div>
-          <span className="kicker">{formatClock(info.prog.start)} – {formatClock(info.prog.stop)}</span>
+          <span className="guide__info-time data">{formatClock(info.prog.start)} – {formatClock(info.prog.stop)}</span>
           <h2 className="guide__info-title" dir="auto">{info.prog.title}</h2>
           {info.prog.description
-            ? <p className="sm t-secondary guide__info-plot" dir="auto">{info.prog.description}</p>
+            ? <p className="t-secondary guide__info-plot" dir="auto">{info.prog.description}</p>
             : <Absence label="No synopsis" className="guide__info-absence" />}
           <div className="guide__info-acts">
             <Button variant="primary" onClick={() => tune(info.item)}><Play size={16} strokeWidth={1.5} />Watch live</Button>
@@ -680,7 +681,7 @@ const GutterCell = memo(function GutterCell({
       <LogoPlate item={item} size="row" />
       <span className="guide__gname">
         <TruncateTail text={withoutQuality(item.title || item.name, quality)} className="live__title" />
-        {quality && <span className="chip micro live__q">{quality}</span>}
+        {quality && <span className="live__q">{quality}</span>}
       </span>
     </div>
   );
@@ -698,6 +699,8 @@ interface GuideRowProps {
   focusMin?: number;
   absenceLeft: number;
   absenceWidth: number;
+  /** Where the visible left edge of the timeline is, so a "No guide data" lane says so once. */
+  voidLabelLeft: number;
   onTune: (i: MediaItem) => void;
   onArchive: (i: MediaItem, p: EpgProgramme) => void;
   onInfo: (p: EpgProgramme) => void;
@@ -712,11 +715,7 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
   if (!item.epgChannelId || (slots && !slots.some((s) => s.prog))) {
     return (
       <div className="guide__row" style={{ top: p.top, height: p.height }}>
-        <Absence
-          label="No guide data"
-          className="guide__void"
-          style={{ insetInlineStart: p.absenceLeft, width: p.absenceWidth }}
-        />
+        <span className="guide__void-label sm" style={{ insetInlineStart: p.voidLabelLeft }}>No guide data</span>
       </div>
     );
   }

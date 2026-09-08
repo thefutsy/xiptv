@@ -1,104 +1,89 @@
+/* V3 "Quiet". One typeface, one accent, neutral greys. Regions are told apart by tone and
+   spacing, never by a line. The only borders in the app belong to inputs' focus rings. */
 :root {
-  --bg-app:        #000000;
-  --bg-surface:    #050608;
-  --bg-raised:     #0E1013;
-  --bg-hover:      #16181D;
-  --bg-active:     #1E2229;
-  --bg-plate:      #1A1D23;
-  --bg-sunken:     #000000;
-  --bg-overlay:    rgba(0, 0, 0, 0.82);
-  --text-primary:   #F2F4F7;
-  --text-secondary: #A8B0BC;
-  --text-tertiary:  #7C8593;
-  --text-separator: #848D99;
-  /* Low-emphasis *live* copy: placeholders, pending rows. Must still clear 4.5:1. */
-  --text-faint:     #7A828E;
-  /* Genuinely inert controls only. WCAG-exempt, so it may sit under 4.5:1. */
-  --text-disabled:  #545C68;
-  --on-accent:      #0A0B0D;
-  --border-hairline:    rgba(255, 255, 255, 0.11);
-  --border-line:        rgba(255, 255, 255, 0.17);
-  --border-strong:      rgba(255, 255, 255, 0.28);
-  --border-image:       rgba(255, 255, 255, 0.17);
-  --border-image-hover: rgba(255, 255, 255, 0.38);
-  --seam-right:  1px 0 0 rgba(0, 0, 0, 0.90), 2px 0 0 rgba(255, 255, 255, 0.07);
-  --seam-left:  -1px 0 0 rgba(0, 0, 0, 0.90), -2px 0 0 rgba(255, 255, 255, 0.07);
-  --seam-bottom: 0 1px 0 rgba(0, 0, 0, 0.90), 0 2px 0 rgba(255, 255, 255, 0.07);
-  --seam-top:    0 -1px 0 rgba(0, 0, 0, 0.90), 0 -2px 0 rgba(255, 255, 255, 0.07);
-  --accent:       #FFB224;
-  --accent-hover: #FFC24F;
-  --accent-press: #E09410;
-  --accent-dim:   rgba(255, 178, 36, 0.14);
-  --accent-line:  rgba(255, 178, 36, 0.38);
-  --accent-ring:  rgba(255, 178, 36, 0.55);
-  --accent-bloom: 0 0 12px rgba(255, 178, 36, 0.45);
-  --cast:      #3ED9A4;
-  --cast-dim:  rgba(62, 217, 164, 0.14);
-  --cast-line: rgba(62, 217, 164, 0.38);
-  --status-ok:   #48C46A;
-  --status-warn: #D9932A;
+  --bg-app:      #0F0F11;
+  --bg-surface:  #151518;
+  --bg-raised:   #1C1C20;
+  --bg-hover:    #222226;
+  --bg-active:   #2A2A30;
+  --bg-plate:    #1C1C20;
+  --bg-sunken:   #0F0F11;
+  --bg-overlay:  rgba(15, 15, 17, 0.74);
+
+  --text-primary:   #F2F2F4;
+  --text-prose:     #D6D6DB;
+  --text-secondary: #A3A3AB;
+  /* Lifted from the concept's #70707A: that sat at 3.7:1 on the surface. This one clears 4.5:1
+     on the surface, the raised tone and the hover tone. */
+  --text-tertiary:  #8A8A93;
+  /* Genuinely inert controls only. */
+  --text-disabled:  #5C5C66;
+  --on-accent:      #0F0F11;
+
+  /* The guide's hour grid and the scrollbar thumb are the only things drawn as lines. */
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --accent:       #5EB0FF;
+  --accent-hover: #7CBFFF;
+  --accent-press: #4A9EF0;
+  --accent-dim:   rgba(94, 176, 255, 0.14);
+  --accent-ring:  rgba(94, 176, 255, 0.65);
+
   --danger:      #F0555F;
   --danger-dim:  rgba(240, 85, 95, 0.12);
-  --danger-line: rgba(240, 85, 95, 0.42);
-  --danger-fill: #E5484D;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.50);
-  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.42);
-  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.66), 0 2px 10px rgba(0, 0, 0, 0.50);
-  --tex-absence: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M-3 3 L3 -3 M0 12 L12 0 M9 15 L15 9' stroke='rgba(255,255,255,0.11)' stroke-width='1.25' fill='none'/%3E%3C/svg%3E");
-  --tex-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.5'/%3E%3C/svg%3E");
-  --grain-opacity: 0.05;
-  /* @fontsource-variable registers the family as "<Name> Variable". The bare name is kept as
-     the next step so a system install of the same face still wins over an unrelated fallback. */
+
+  --shadow-panel: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-poster: 0 8px 28px rgba(0, 0, 0, 0.45);
+
   --font-ui: "Inter Variable", "Inter", -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "SF Mono", "Cascadia Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-display: var(--font-ui);
-  --fs-serif-1: 38px;   --lh-serif-1: 42px;   --ls-serif-1: -0.028em;
-  --fs-serif-2: 25px;   --lh-serif-2: 30px;   --ls-serif-2: -0.024em;
-  --fs-h1:      20px;   --lh-h1:      26px;   --ls-h1:      -0.016em;
-  --fs-h2:      15px;   --lh-h2:      21px;   --ls-h2:      -0.010em;
-  --fs-body:    14px;   --lh-body:    20px;   --ls-body:    -0.004em;
-  --fs-sm:      13px;   --lh-sm:      18px;   --ls-sm:      -0.002em;
-  --fs-caption: 12px;   --lh-caption: 16px;   --ls-caption: 0em;
-  --fs-micro:   11px;   --lh-micro:   14px;   --ls-micro:   0.004em;
-  --fs-kicker:  12px;   --lh-kicker:  14px;   --ls-kicker:  0.07em;
-  --fs-data:    12px;   --lh-data:    16px;   --ls-data:    0.01em;
-  --fs-data-lg: 14px;   --lh-data-lg: 18px;   --ls-data-lg: 0.01em;
+
+  --fs-display: 40px;  --lh-display: 44px;  --ls-display: -0.022em;
+  --fs-title:   28px;  --lh-title:   34px;  --ls-title:   -0.018em;
+  --fs-section: 22px;  --lh-section: 28px;  --ls-section: -0.012em;
+  --fs-sub:     17px;  --lh-sub:     24px;  --ls-sub:     -0.008em;
+  --fs-body:    15px;  --lh-body:    22px;  --ls-body:    -0.004em;
+  --fs-sm:      13px;  --lh-sm:      18px;  --ls-sm:      0em;
+  --fs-micro:   12px;  --lh-micro:   16px;  --ls-micro:   0.002em;
+
   --fw-body: 450;
   --fw-medium: 500;
-  --fw-label: 560;
-  --fw-title: 600;
-  --fw-serif: 600;
+  --fw-semibold: 600;
+
   --measure-prose: 64ch;
+
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
   --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 48px;
-  --r-chip: 3px;
-  --r-row: 5px;
+
+  --r-chip: 4px;
+  --r-row: 6px;
   --r-card: 6px;
-  --r-control: 7px;
-  --r-panel: 10px;
-  --r-modal: 12px;
+  --r-control: 8px;
+  --r-panel: 12px;
+  --r-modal: 14px;
   --r-full: 999px;
+
   --h-titlebar: 40px;
-  --w-rail: 80px;
-  --w-context: 264px;
-  --h-section-header: 56px;
+  --w-rail: 72px;
+  --w-context: 248px;
+  --h-section-header: 92px;
   --h-castbar: 56px;
   --w-gutter: 288px;
-  --pad-page: 28px;
+  --w-preview: 320px;
+  --pad-page: 32px;
+
   --row-h: 56px;
+  --row-h-list: 64px;
   --row-h-guide: 52px;
-  --grid-min: 152px;
-  --grid-gap-x: 18px;
-  --grid-gap-y: 26px;
+  --grid-min: 168px;
+  --grid-gap-x: 20px;
+  --grid-gap-y: 28px;
   --ppm: 5px;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
-  --ease-micro: cubic-bezier(0.33, 1, 0.68, 1);
-  --dur-1: 110ms;
-  --dur-2: 170ms;
-  --dur-3: 230ms;
-  --dur-4: 320ms;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 120ms;
+  --dur-pop: 160ms;
+
   --z-content: 0;
   --z-sticky: 20;
   --z-chrome: 40;
@@ -106,10 +91,10 @@
   --z-popover: 60;
   --z-modal: 70;
   --z-player: 80;
-  --z-grain: 90;
   --z-toast: 100;
 }
 
+/* The palette scrim is the one blurred surface left. Both hooks turn it off. */
 :root[data-transparency="off"],
 :root[data-transparency="off"] * {
   backdrop-filter: none !important;
@@ -118,13 +103,10 @@
   :root, :root * { backdrop-filter: none !important; }
 }
 
-@media (max-width: 1120px) { :root { --w-context: 232px; --pad-page: 20px; } }
+@media (max-width: 1120px) { :root { --w-context: 224px; --pad-page: 24px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --dur-1: 100ms; --dur-2: 100ms; --dur-3: 100ms; --dur-4: 100ms;
-    --ease-standard: linear; --ease-out: linear; --ease-in: linear; --ease-micro: linear;
-  }
+  :root { --dur: 0ms; --dur-pop: 0ms; }
 }
 
 html, body {
@@ -136,18 +118,11 @@ html, body {
   font-weight: var(--fw-body);
   letter-spacing: var(--ls-body);
   /* cv05: l with a tail. cv08: I with serifs. Channel names are full of Il1. */
-  font-feature-settings: "cv05" 1, "cv08" 1, "calt" 1, "ss03" 1;
+  font-feature-settings: "cv05" 1, "cv08" 1, "calt" 1;
   font-variant-numeric: tabular-nums;
   font-optical-sizing: auto;
   font-synthesis: none;
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent-ring);
-  outline-offset: 2px;
-  border-radius: var(--r-card);
-  transition: none;
 }

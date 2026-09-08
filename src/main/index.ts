@@ -688,6 +688,12 @@ async function createWindow(): Promise<void> {
   else await win.loadFile(join(__dirname_, '../../dist/index.html'));
 }
 
+// A screenshot or test run can point the whole profile elsewhere, so it never touches the real one.
+if (process.env.XIPTV_USER_DATA) {
+  app.setPath('userData', process.env.XIPTV_USER_DATA);
+  app.setPath('sessionData', process.env.XIPTV_USER_DATA);
+}
+
 if (process.argv.includes('--no-hw') || process.env.XIPTV_NO_HW === '1') {
   app.disableHardwareAcceleration();
 }

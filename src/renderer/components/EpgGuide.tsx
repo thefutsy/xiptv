@@ -562,7 +562,8 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                 <span className="sm">Guide data only</span>
               </button>
             </div>
-            {hours.map((m) => (
+            {/* The now pill is opaque and centred on the minute; a label under it would peek out. */}
+            {hours.filter((m) => Math.abs((m - nowMin) * ppm) > 60).map((m) => (
               <span key={m} className="guide__hour data" style={{ '--m0': m } as CSSProperties}>
                 {formatClock(base + m * 60)}
               </span>

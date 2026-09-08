@@ -165,7 +165,7 @@
 @keyframes ledger-sweep { from { transform: translateX(-110%); } to { transform: translateX(366%); } }
 
 .ledger__done { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
-.ledger__done > svg { color: var(--accent); }
+.ledger__done > svg { color: var(--text-primary); }
 
 .ledger__message { margin-top: 20px; }
 .ledger__error { margin-top: 10px; color: var(--danger); max-width: 44ch; }

@@ -164,7 +164,7 @@
 .onboard__phase-state { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
 .onboard__phase-bar { max-width: 180px; }
 .onboard__dots { color: var(--text-disabled); letter-spacing: 0.22em; }
-.onboard__tick { display: grid; place-items: center; color: var(--accent); }
+.onboard__tick { display: grid; place-items: center; color: var(--text-primary); }
 .onboard__bad { display: grid; place-items: center; color: var(--danger); }
 .onboard__tick svg, .onboard__bad svg { stroke-width: 2; }
 .onboard__msg { margin-top: 14px; }

@@ -443,12 +443,10 @@ export function LiveTv() {
                     focused={index === focus && focusRing}
                     failed={Boolean(failures[row.item.id])}
                     favourite={favouriteIds.has(row.item.id)}
-                    variantIndex={row.variantIndex === -1 ? (chosen[row.key] ?? 0) : row.variantIndex}
                     register={register}
                     onPlay={play}
                     onFocus={focusRow}
                     onExpand={expand}
-                    onVariant={chooseVariant}
                     onFavourite={toggleFavourite}
                     onMenu={openMenu}
                   />
@@ -597,12 +595,10 @@ interface RowProps {
   focused: boolean;
   failed: boolean;
   favourite: boolean;
-  variantIndex: number;
   register: (index: number) => () => void;
   onPlay: (item: MediaItem) => void;
   onFocus: (index: number) => void;
   onExpand: (key: string) => void;
-  onVariant: (key: string, index: number) => void;
   onFavourite: (item: MediaItem) => void;
   onMenu: (row: RowModel, anchor: DOMRect) => void;
 }
@@ -621,7 +617,6 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
   const label = useMemo(() => withoutQuality(item.title || item.name, quality), [item.title, item.name, quality]);
   const current = nn?.now;
   const variants = p.row.group.variants;
-  const showPills = p.row.variantIndex === -1 && variants.length > 1;
 
   return (
     <div
@@ -665,21 +660,6 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
       </div>
 
       <div className="live__right">
-        {showPills && (
-          <span className="live__pills">
-            {variants.slice(0, 4).map((v, i) => (
-              <button
-                key={v.id}
-                type="button"
-                className={classNames('live__pill', i === p.variantIndex && 'is-on')}
-                onClick={(e) => { e.stopPropagation(); p.onVariant(p.row.key, i); }}
-              >
-                {p.row.group.labels[i] || '·'}
-              </button>
-            ))}
-          </span>
-        )}
-
         <span className={classNames('live__times data', !current && 'live__times--empty')}>
           {current ? `${formatClock(current.start)} – ${formatClock(current.stop)}` : '–'}
         </span>
@@ -777,6 +757,24 @@ function PreviewPanel({
           <span className="live__preview-raw sm t-tertiary truncate" dir="auto">{item.name}</span>
         </div>
       </div>
+
+      {siblings.length > 1 && (
+        <div className="live__preview-feeds">
+          <span className="live__preview-kicker">Feeds</span>
+          <span className="live__pills">
+            {siblings.map((v, i) => (
+              <button
+                key={v.id}
+                type="button"
+                className={classNames('live__pill', v.id === item.id && 'is-on')}
+                onClick={() => onVariant(row.key, i)}
+              >
+                {row.group.labels[i] || '·'}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
 
       {failed ? (
         <div className="live__fail">

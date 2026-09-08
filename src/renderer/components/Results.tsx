@@ -85,13 +85,13 @@ export function MediaRow({ item, showKind, right }: { item: MediaItem; showKind?
         </span>
       </button>
       <div className="mx-row__end">
-        {showKind && <span className="mx-kind">{kindWord(item.kind)}</span>}
         <div className="mx-row__act">
           {right}
           <button type="button" className="mx-icon-btn" aria-label={`Play ${label}`} onClick={() => void playItem(item)}>
             <Glyph icon={ICON.play} />
           </button>
         </div>
+        {showKind && <span className="mx-kind">{kindWord(item.kind)}</span>}
       </div>
     </div>
   );

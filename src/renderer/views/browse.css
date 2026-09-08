@@ -5,6 +5,7 @@
   background: var(--bg-surface);
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   padding-block-end: var(--s-8);
 }
 
@@ -102,7 +103,7 @@
 }
 .menu__item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .menu__item.is-selected { color: var(--text-primary); }
-.menu__tick { flex: none; width: 16px; display: grid; place-items: center; color: var(--accent); }
+.menu__tick { flex: none; width: 16px; display: grid; place-items: center; color: var(--text-primary); }
 .menu__trailing { flex: none; margin-inline-start: auto; color: var(--text-tertiary); font-size: var(--fs-sm); }
 
 /* Landing rails. */
@@ -138,6 +139,18 @@
 .rail__all:hover { color: var(--text-primary); background: var(--bg-raised); }
 
 .rail__body { position: relative; }
+.rail__body::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 64px;
+  background: linear-gradient(to right, transparent, var(--bg-surface));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.rail__body[data-end="true"]::after { opacity: 1; }
 
 .rail__track {
   display: flex;
@@ -153,11 +166,10 @@
 .rail__item { flex: none; width: var(--grid-min); }
 .rail__item--wide { width: 280px; }
 .rail__item .mcard { height: auto; }
-/* Rails are not virtualised, so their captions can hug the text. */
-.rail__item .mcard__caption { height: auto; padding-block-end: 2px; }
 
 .rail__arrow {
   position: absolute;
+  z-index: 1;
   inset-block-start: calc(50% - 44px);
   width: 32px;
   height: 32px;
@@ -228,6 +240,7 @@
   overflow: hidden;
 }
 .mcard__title {
+  flex: 1 1 auto;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -240,7 +253,8 @@
   letter-spacing: var(--ls-body);
   color: var(--text-primary);
 }
-.mcard__meta { flex: none; height: 18px; overflow: hidden; }
+/* Pinned to the caption's floor so every card in a row shares its secondary baseline. */
+.mcard__meta { flex: none; height: 18px; margin-block-start: auto; overflow: hidden; }
 
 .mcard--skeleton { cursor: default; }
 .mcard--skeleton .mcard__poster { position: absolute; inset: 0; }
@@ -346,7 +360,8 @@
 .detail__action.btn > svg { color: var(--text-tertiary); }
 .detail__action.btn:hover > svg { color: var(--text-primary); }
 
-.detail__main { flex: 1 1 auto; min-width: 0; max-width: 680px; padding-block-start: 4px; }
+/* The 40px title's cap height sits 8px into its line box; pulling the column up puts it on the poster's top edge. */
+.detail__main { flex: 1 1 auto; min-width: 0; max-width: 680px; margin-block-start: -8px; }
 
 .detail__title {
   color: var(--text-primary);
@@ -557,7 +572,7 @@
 .episode:hover .episode__watch,
 .episode:focus-within .episode__watch { opacity: 1; }
 .episode__watch:hover { background: var(--bg-active); color: var(--text-primary); }
-.episode.is-done .episode__watch { opacity: 1; color: var(--accent); }
+.episode.is-done .episode__watch { opacity: 1; color: var(--text-secondary); }
 
 .episode--skeleton { cursor: default; pointer-events: none; }
 .episode--skeleton .episode__img { width: 100%; height: 100%; }

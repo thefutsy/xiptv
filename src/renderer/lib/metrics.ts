@@ -52,7 +52,7 @@ export function useGridMetrics(ref: RefObject<HTMLElement | null>): GridMetrics 
     const gapX = px(style, '--grid-gap-x', 20);
     const gapY = px(style, '--grid-gap-y', 28);
     const pad = px(style, '--pad-page', 32);
-    const listRowH = px(style, '--row-h-list', 64);
+    const listRowH = px(style, '--row-h-list', 80);
     const usable = width - SCROLLBAR;
     const inner = Math.max(0, usable - pad * 2);
     const columns = columnsFor(usable, min, gapX, pad);

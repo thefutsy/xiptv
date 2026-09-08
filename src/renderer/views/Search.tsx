@@ -224,15 +224,18 @@ export function SearchPage() {
 
       <div className="search__meta">
         <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={setTab} />
-        <p className="mx-head__count data">
-          {error !== undefined
-            ? <>Catalogue did not answer</>
-            : hasQuery
-            ? <>{shown.length.toLocaleString()} shown{shown.length !== matched.length && <> · {matched.length.toLocaleString()} matched</>}</>
-            : stats
-              ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
-              : <>Catalogue not read yet</>}
-        </p>
+        {/* The tabs carry the counts; this line only speaks when filters have removed something. */}
+        {(error !== undefined || !hasQuery || shown.length !== scoped.length) && (
+          <p className="mx-head__count data">
+            {error !== undefined
+              ? <>Catalogue did not answer</>
+              : hasQuery
+              ? <>{shown.length.toLocaleString()} of {scoped.length.toLocaleString()} shown</>
+              : stats
+                ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
+                : <>Catalogue not read yet</>}
+          </p>
+        )}
         <span className="search__meta-spacer" />
         {hasQuery && (
           <FacetToggle

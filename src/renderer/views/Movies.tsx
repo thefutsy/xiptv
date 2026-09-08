@@ -264,7 +264,7 @@ function Rail({
           </button>
         )}
       </div>
-      <div className="rail__body">
+      <div className="rail__body" data-end={edges.end}>
         <div className="rail__track" ref={track}>{children}</div>
         <button
           type="button"

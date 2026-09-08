@@ -111,7 +111,7 @@
   transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 .live__switch.is-on .live__switch-track,
-.guide__switch.is-on .guide__switch-track { background: var(--accent); }
+.guide__switch.is-on .guide__switch-track { background: var(--text-primary); }
 .live__switch.is-on .live__switch-knob,
 .guide__switch.is-on .guide__switch-knob {
   background: var(--on-accent);
@@ -127,7 +127,7 @@
   min-height: 0;
 }
 
-.live__list { flex: 1 1 auto; min-height: 0; }
+.live__list { flex: 1 1 auto; min-height: 0; scrollbar-gutter: stable; }
 .live__list--skeleton { overflow: hidden; }
 
 /* Channel rows: plate, name over programme, time at the right. Actions arrive on hover. */
@@ -223,9 +223,10 @@
   border-radius: var(--r-full);
 }
 
+/* Fixed columns, so time and star line up on every row. */
 .live__right {
   display: grid;
-  grid-template-columns: auto auto 56px;
+  grid-template-columns: minmax(112px, auto) 56px;
   flex: none;
   align-items: center;
   gap: 12px;
@@ -406,6 +407,10 @@
 .live__preview-id .h2 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--fw-medium); }
 .live__preview-raw { user-select: text; }
 
+.live__preview-feeds { display: flex; align-items: center; gap: 12px; margin-top: -6px; }
+.live__preview-feeds .live__pill { height: 28px; padding-inline: 10px; background: var(--bg-surface); font-size: var(--fs-body); }
+.live__preview-feeds .live__pill.is-on { background: var(--bg-active); }
+
 .live__preview-now { display: flex; flex-direction: column; gap: 4px; }
 .live__preview-time { color: var(--text-tertiary); font-size: var(--fs-sm); line-height: var(--lh-sm); }
 .live__preview-title {
@@ -549,6 +554,22 @@
   background: var(--bg-surface);
   overscroll-behavior: contain;
 }
+/* The gutter is sticky over the canvas, so the scrollbar tracks are inset to keep the thumbs under
+   the timeline. Chromium only honours the WebKit scrollbar parts once the standard scrollbar
+   properties are back at auto, hence the opt-out from the global thin scrollbar here. */
+.guide__scroll { scrollbar-width: auto; scrollbar-color: auto; }
+.guide__scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.guide__scroll::-webkit-scrollbar-track { background: transparent; }
+.guide__scroll::-webkit-scrollbar-track:horizontal { margin-left: var(--w-gutter, 300px); }
+.guide__scroll::-webkit-scrollbar-track:vertical { margin-top: 40px; }
+.guide__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.guide__scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); background-clip: content-box; }
+.guide__scroll::-webkit-scrollbar-corner { background: transparent; }
 
 .guide__canvas {
   position: relative;

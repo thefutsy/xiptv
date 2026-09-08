@@ -606,7 +606,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                     focusMin={ring && index === focus.row ? focus.min : undefined}
                     absenceLeft={gutter + Math.max(0, timelineLeft - H_OVERSCAN)}
                     absenceWidth={view.width + H_OVERSCAN * 2}
-                    voidLabelLeft={gutter + timelineLeft + 12}
+                    voidLabelLeft={view.left + gutter + 12}
                     onTune={tune}
                     onArchive={playFromStart}
                     onInfo={(prog) => setInfo({ item, prog })}

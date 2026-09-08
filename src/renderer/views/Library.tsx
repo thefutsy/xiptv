@@ -8,6 +8,7 @@ import { VGrid, VList } from '@/lib/virtual';
 import { useGridMetrics } from '@/lib/metrics';
 import { countKinds, hasMixedKinds, prefersRows, sortItems, type KindTab, type SortKey } from '@/lib/catalog';
 import { errorText, formatDuration, progressThrough } from '@/lib/format';
+import { coarseDuration } from '@/components/MediaCard';
 import './misc.css';
 
 const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
@@ -302,7 +303,6 @@ function ContinueRow({
   const [broken, setBroken] = useState(false);
   const through = entry.duration > 0 ? progressThrough(0, entry.duration, entry.position) : 0;
   const left = Math.max(0, entry.duration - entry.position);
-  const minutesLeft = Math.round(left / 60);
 
   return (
     <div className="library__cont">
@@ -323,7 +323,7 @@ function ContinueRow({
           <Kicker
             className="library__cont-kicker"
             parts={[
-              entry.duration > 0 && `${minutesLeft.toLocaleString()} min left`,
+              entry.duration > 0 && `${coarseDuration(left)} left`,
               entry.duration > 0
                 ? `${formatDuration(entry.position)} of ${formatDuration(entry.duration)}`
                 : formatDuration(entry.position),
@@ -333,7 +333,6 @@ function ContinueRow({
       </button>
 
       <div className="library__cont-end">
-        <span className="mx-kind">{kindWord(entry.kind)}</span>
         <div className="library__cont-act">
           <Button variant="ghost" onClick={() => void onResume(entry)}>
             <Glyph icon={ICON.play} />Resume
@@ -347,6 +346,7 @@ function ContinueRow({
             <Glyph icon={ICON.close} />
           </button>
         </div>
+        <span className="mx-kind">{kindWord(entry.kind)}</span>
       </div>
     </div>
   );

@@ -38,7 +38,7 @@
 }
 .context__clear-glyph:hover { background: var(--bg-active); color: var(--text-primary); }
 
-.context__list { flex: 1 1 auto; min-height: 0; }
+.context__list { flex: 1 1 auto; min-height: 0; scrollbar-gutter: stable; }
 
 .context__row {
   position: relative;
@@ -90,8 +90,8 @@
   min-width: 20px; height: 20px; padding-inline: 6px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-full);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--bg-active);
+  color: var(--text-primary);
   font-size: var(--fs-micro); font-weight: var(--fw-semibold);
 }
 .context__chev { flex: none; color: var(--text-tertiary); transition: transform var(--dur) var(--ease); }
@@ -134,7 +134,7 @@
   color: var(--on-accent);
   transition: background-color var(--dur) var(--ease);
 }
-.context__check[data-on="true"] .context__box { background: var(--accent); }
+.context__check[data-on="true"] .context__box { background: var(--text-primary); }
 
 .context__chips { display: flex; flex-wrap: wrap; gap: 4px; }
 

@@ -411,7 +411,6 @@ export function Browse({ kind }: { kind: BrowseKind }) {
               ? <Skeleton width={168} height={12} radius={3} />
               : landingCount(categories, meta.noun)
         }
-        tools={tools}
       />
     );
 

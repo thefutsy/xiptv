@@ -216,7 +216,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
     <>
       <BrandMark />
       <p className="onboard__kicker">Welcome to xiptv</p>
-      <h1 className="serif-1 onboard__title">Bring your own provider.</h1>
+      <h1 className="t-display onboard__title">Bring your own provider.</h1>
       <p className="onboard__lede sm t-secondary">
         xiptv carries no catalogue of its own. Point it at your Xtream account or an M3U playlist
         and it plays live TV, films and series, with the guide alongside them.
@@ -234,7 +234,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
 function PickKind({ onPick }: { onPick: (kind: SourceKind) => void }) {
   return (
     <>
-      <h1 className="serif-2 onboard__title">How do you connect?</h1>
+      <h1 className="t-title onboard__title">How do you connect?</h1>
       <p className="onboard__lede sm t-secondary">Pick the kind of account your provider gave you.</p>
       <div className="onboard__kinds">
         {KINDS.map((k) => (
@@ -268,7 +268,7 @@ function Connect({
   const complete = draftComplete(draft);
   return (
     <>
-      <h1 className="serif-2 onboard__title">{xtream ? 'Your Xtream account.' : 'Your playlist.'}</h1>
+      <h1 className="t-title onboard__title">{xtream ? 'Your Xtream account.' : 'Your playlist.'}</h1>
       <p className="onboard__lede sm t-secondary">
         {xtream
           ? 'Type what your provider sent you. It is kept on this machine.'
@@ -313,7 +313,7 @@ function Landing({
 
   return (
     <>
-      <h1 className="serif-2 onboard__title">{done ? 'Your catalogue is ready.' : 'Reading your provider.'}</h1>
+      <h1 className="t-title onboard__title">{done ? 'Your catalogue is ready.' : 'Reading your provider.'}</h1>
       <p className="onboard__lede sm t-secondary" dir="auto">{name}</p>
 
       <ul className="onboard__phases">
@@ -357,7 +357,7 @@ function Landing({
           ] as const).map(([label, value]) => (
             <li key={label}>
               <span className="onboard__count data">{value.toLocaleString()}</span>
-              <span className="onboard__count-label micro">{label}</span>
+              <span className="onboard__count-label">{label}</span>
             </li>
           ))}
         </ul>

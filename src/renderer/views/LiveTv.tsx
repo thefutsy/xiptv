@@ -11,7 +11,7 @@ import { VList } from '@/lib/virtual';
 import { useTokenPx } from '@/lib/metrics';
 import { groupVariants, parseCategory, qualityTag, withoutQuality, type VariantGroup } from '@/lib/catalog';
 import {
-  Absence, Button, CategoryLabel, EmptyState, LogoPlate, Skeleton, Tally, TruncateTail,
+  Absence, Button, CategoryLabel, EmptyState, LogoPlate, Skeleton, TruncateTail,
 } from '@/components/Primitives';
 import {
   classNames, debounce, formatClock, formatDayLabel, isTextEntry, progressThrough,

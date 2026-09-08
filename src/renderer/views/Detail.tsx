@@ -60,6 +60,18 @@ function episodeCode(episode: Episode): string {
   return `S${episode.season} E${episode.episodeNum}`;
 }
 
+/**
+ * Providers often file an episode as "Show (2026) (US) - S01E01 - One". The show and the code are
+ * already on the page, so the row keeps only the part that names the episode.
+ */
+function episodeTitle(episode: Episode): string {
+  const raw = (episode.title || '').trim();
+  const m = /^(?:.*?\s[-\u2013]\s)?S\d{1,2}\s?E\d{1,3}(?:\s[-\u2013:]\s*|\s+)(.+)$/i.exec(raw);
+  const kept = m?.[1]?.trim();
+  if (kept) return kept;
+  return raw || `Episode ${episode.episodeNum}`;
+}
+
 function episodeDuration(seconds: number): string {
   const minutes = Math.max(1, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
@@ -319,7 +331,8 @@ function Spread({
 
   const titleSize = title.length > 56 ? 'detail__title--xs' : title.length > 34 ? 'detail__title--sm' : '';
   const quality = qualityTag(detail.name);
-  const runtime = detail.kind === 'movie' && detail.durationSecs && detail.durationSecs > 60
+  // Providers sometimes ship a sample length in this field; anything under a quarter hour is noise.
+  const runtime = detail.kind === 'movie' && detail.durationSecs && detail.durationSecs >= 15 * 60
     ? coarseDuration(detail.durationSecs)
     : undefined;
 
@@ -372,9 +385,6 @@ function Spread({
 
       <div className="detail__main">
         <h1 className={classNames('t-display detail__title', titleSize)} dir="auto">{title}</h1>
-        {detail.name && detail.name !== title && (
-          <p className="detail__original truncate" dir="auto">{detail.name}</p>
-        )}
         <Kicker
           className="detail__meta"
           parts={[
@@ -605,7 +615,7 @@ function EpisodeRow({
       <div className="episode__text">
         <div className="episode__line">
           <span className="episode__num data">{episode.episodeNum}</span>
-          <TruncateTail text={episode.title || `Episode ${episode.episodeNum}`} className="episode__title" />
+          <TruncateTail text={episodeTitle(episode)} className="episode__title" />
         </div>
         {episode.plot && <p className="episode__plot sm" dir="auto">{episode.plot}</p>}
       </div>

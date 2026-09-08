@@ -145,7 +145,7 @@ export function Field({
           </button>
         )}
       </span>
-      {hint && <span className="mx-field__hint caption t-tertiary">{hint}</span>}
+      {hint && <span className="mx-field__hint sm t-secondary">{hint}</span>}
     </label>
   );
 }
@@ -254,7 +254,7 @@ function Row({ title, help, children }: { title: string; help?: string; children
     <div className="settings__row">
       <div className="settings__row-text">
         <span className="settings__row-title">{title}</span>
-        {help && <span className="settings__row-help caption t-tertiary">{help}</span>}
+        {help && <span className="settings__row-help sm">{help}</span>}
       </div>
       <div className="settings__row-ctl">{children}</div>
     </div>
@@ -327,7 +327,7 @@ function FillFeeds({ sourceId, fill, status, onChange }: {
       </Row>
 
       <div className="settings__stack">
-        <span className="caption t-tertiary">
+        <span className="sm t-secondary">
           {on === 0 ? 'No extra guides. Only the provider feed is read.' : `${on} extra ${on === 1 ? 'guide' : 'guides'} fill channels the provider leaves blank.`}
         </span>
         <div className="settings__feeds">
@@ -335,7 +335,7 @@ function FillFeeds({ sourceId, fill, status, onChange }: {
             <button
               key={f.id}
               type="button"
-              className={classNames('mx-tog sm', isOn(f.id) && 'mx-tog--on')}
+              className={classNames('mx-tog', isOn(f.id) && 'mx-tog--on')}
               aria-pressed={isOn(f.id)}
               title={byId.get(f.id)?.error ?? f.url}
               onClick={() => toggle(f.id)}
@@ -348,7 +348,7 @@ function FillFeeds({ sourceId, fill, status, onChange }: {
             <button
               key={u}
               type="button"
-              className="mx-tog sm mx-tog--on"
+              className="mx-tog mx-tog--on"
               aria-pressed
               title={byId.get(u)?.error ?? `${u} · click to remove`}
               onClick={() => toggle(u)}
@@ -358,12 +358,12 @@ function FillFeeds({ sourceId, fill, status, onChange }: {
             </button>
           ))}
           {entries.length > shown.length && (
-            <button type="button" className="mx-tog sm" onClick={() => setShowAll(true)}>
-              <Glyph icon={ICON.plus} size={12} />{entries.length - shown.length} more{entries.length - shown.length === 1 ? ' country' : ' countries'}
+            <button type="button" className="mx-tog" onClick={() => setShowAll(true)}>
+              <Glyph icon={ICON.plus} size={14} />{entries.length - shown.length} more{entries.length - shown.length === 1 ? ' country' : ' countries'}
             </button>
           )}
           {showAll && (
-            <button type="button" className="mx-tog sm" onClick={() => setShowAll(false)}>Fewer</button>
+            <button type="button" className="mx-tog" onClick={() => setShowAll(false)}>Fewer</button>
           )}
         </div>
         <div className="settings__feeds-add">
@@ -507,7 +507,7 @@ export function Settings() {
         <div className="settings__body">
           <Section label="Provider" glyph={ICON.server}>
             {sources.length === 0 && (
-              <p className="settings__note sm t-secondary">
+              <p className="settings__note">
                 No sources yet. xiptv ships no catalogue of its own. Add an Xtream account or an
                 M3U playlist and everything else in the app fills in.
               </p>
@@ -522,10 +522,10 @@ export function Settings() {
                       aria-hidden
                     />
                     <span className="settings__source-name truncate" dir="auto">{s.name}</span>
-                    <span className="mx-chip micro">{s.kind === 'xtream' ? 'XTREAM' : 'M3U'}</span>
-                    {s.id === source?.id && <span className="settings__source-flag micro">IN USE</span>}
+                    <span className="settings__source-kind">{s.kind === 'xtream' ? 'Xtream Codes' : 'M3U playlist'}</span>
+                    {s.id === source?.id && <span className="settings__source-flag">In use</span>}
                   </div>
-                  <p className="settings__source-url data truncate" dir="auto">{s.url}</p>
+                  <p className="settings__source-url sm truncate" dir="auto">{s.url}</p>
                   <div className="settings__source-acts">
                     {s.id !== source?.id && (
                       <Button variant="plain" onClick={() => void makeActive(s.id)}>Use this source</Button>
@@ -583,7 +583,7 @@ export function Settings() {
           </Section>
 
           <Section label="Guide" glyph={ICON.clock}>
-            <p className="settings__note sm t-secondary">
+            <p className="settings__note">
               The provider's guide is read first. Public guides then fill in channels it shipped
               without listings; a channel that already has listings is never overwritten.
             </p>
@@ -613,10 +613,7 @@ export function Settings() {
             {refreshing && (
               <div className="settings__sync">
                 <ProgressBar value={sync?.progress ?? null} />
-                <p className="settings__sync-msg caption t-tertiary">
-                  <span className="settings__sync-phase">{(sync?.phase ?? 'epg').toUpperCase()}</span>
-                  {sync?.message ?? 'Working'}
-                </p>
+                <p className="settings__sync-msg sm t-secondary">{sync?.message ?? 'Working'}</p>
               </div>
             )}
 
@@ -674,7 +671,7 @@ export function Settings() {
           </Section>
 
           <Section label="Interface" glyph={ICON.monitor}>
-            <Row title="Reduce transparency" help="Turns off the blur behind the section headers, the guide ruler and the palette.">
+            <Row title="Reduce transparency" help="Turns off the blur behind the search palette.">
               <Switch label="Reduce transparency" checked={prefs.reduceTransparency} onChange={(v) => setUiPrefs({ reduceTransparency: v })} />
             </Row>
 
@@ -693,7 +690,7 @@ export function Settings() {
               <SpecRow label="Electron"><span className="data">{versionFrom(/Electron\/([\d.]+)/)}</span></SpecRow>
               <SpecRow label="Chromium"><span className="data">{versionFrom(/Chrome\/([\d.]+)/)}</span></SpecRow>
             </div>
-            <p className="settings__note sm t-secondary">
+            <p className="settings__note">
               xiptv plays what your provider ships and nothing else. There is no account, no
               telemetry and no catalogue of its own. The source list above is the whole product.
             </p>
@@ -783,7 +780,7 @@ export function TestReport({ result, testing }: { result?: TestResult; testing: 
     return (
       <div className="mx-report mx-report--busy">
         <ProgressBar value={null} />
-        <p className="mx-report__msg sm t-secondary">Opening a connection and reading the account.</p>
+        <p className="mx-report__msg t-secondary">Opening a connection and reading the account.</p>
       </div>
     );
   }
@@ -795,7 +792,7 @@ export function TestReport({ result, testing }: { result?: TestResult; testing: 
         <span className="mx-report__glyph"><Glyph icon={ICON.alert} size={20} /></span>
         <div className="mx-report__text">
           <p className="h2">The provider refused that</p>
-          <p className="mx-report__msg sm t-secondary" dir="auto">{result.message}</p>
+          <p className="mx-report__msg t-secondary" dir="auto">{result.message}</p>
         </div>
       </div>
     );
@@ -814,13 +811,13 @@ export function TestReport({ result, testing }: { result?: TestResult; testing: 
       <span className="mx-report__glyph mx-report__glyph--ok"><Glyph icon={ICON.check} size={20} /></span>
       <div className="mx-report__text">
         <p className="h2">Connected</p>
-        <p className="mx-report__msg sm t-secondary" dir="auto">{result.message}</p>
+        <p className="mx-report__msg t-secondary" dir="auto">{result.message}</p>
         {counted.length > 0 && (
           <ul className="mx-report__counts">
             {counted.map(([label, value]) => (
               <li key={label}>
                 <span className="mx-report__count data">{value.toLocaleString()}</span>
-                <span className="mx-report__count-label micro">{label}</span>
+                <span className="mx-report__count-label sm">{label}</span>
               </li>
             ))}
           </ul>

@@ -57,7 +57,9 @@ export function parseCategory(category: Category): ParsedCategory {
     if (!m) break;
     const token = m[1].toUpperCase();
     const marker = KIND_MARKERS.has(token);
-    if (!marker && !PREFIX_CODES.has(token)) break;
+    // `NA| USA GENERAL`: a token the provider fenced with a pipe is a prefix whether or not it is on the list.
+    const fenced = rest.slice(m[1].length).trimStart().startsWith('|');
+    if (!marker && !fenced && !PREFIX_CODES.has(token)) break;
     const remainder = rest.slice(m[0].length).replace(CATEGORY_DECOR, '').trim();
     if (!remainder) break;
     // `VOD`/`SRS` repeat on every category in a section, so they are dropped rather than chipped.

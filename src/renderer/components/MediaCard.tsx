@@ -186,7 +186,7 @@ export const MediaCard = memo(function MediaCard({
           aria-label={favourite ? 'Remove from favourites' : 'Add to favourites'}
           onClick={(e) => { e.stopPropagation(); void toggleFavourite(item); }}
         >
-          <Glyph.Star size={14} filled={favourite} />
+          <Glyph.Star size={12} filled={favourite} />
         </button>
       </div>
       <div className="mcard__caption">

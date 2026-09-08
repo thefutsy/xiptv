@@ -1,57 +1,20 @@
-/* First run is the one screen with nothing else on it, so the shader gets to run hot: a
-   brighter field, a scrim that opens the middle instead of flattening it, and a glass panel
-   floating on top. Every other surface in the app keeps the quieter backdrop. */
-.shell--onboard .backdrop { --backdrop-strength: 0.70; }
-
-.shell--onboard .backdrop__field { filter: saturate(1.2) brightness(0.72); }
-.shell--onboard .backdrop__scrim {
-  background:
-    radial-gradient(76% 60% at 50% 34%, rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0) 100%),
-    linear-gradient(to bottom,
-      rgba(0, 0, 0, 0.46) 0%, rgba(0, 0, 0, 0.08) 30%, rgba(0, 0, 0, 0.22) 56%, rgba(0, 0, 0, 0.78) 100%);
-}
-
+/* First run. The same quiet surfaces as the rest of the app: a raised panel on the app tone. */
 .onboard {
   position: relative;
   min-height: 100%;
   display: flex;
   justify-content: center;
   color-scheme: dark;
-  /* Denser than the app's chrome panes: this one carries the only text on screen, and the
-     field drifting under it runs from near black to open water. */
-  --onboard-pane: color-mix(in srgb, var(--bg-surface) 70%, transparent);
 }
-:root[data-transparency="off"] .onboard { --onboard-pane: var(--bg-surface); }
-@media (prefers-reduced-transparency: reduce) { .onboard { --onboard-pane: var(--bg-surface); } }
 
-/* The shader is off, so nothing is moving behind the panel. This stands in for the ocean.
-   It clips its own drift, and sits in the positioned layer so the opaque shell background
-   underneath cannot paint over it. */
-.onboard__wash {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.onboard__wash::after {
-  content: '';
-  position: absolute;
-  inset: -8%;
-  background:
-    radial-gradient(58% 46% at 24% 16%, rgba(27, 108, 168, 0.34), transparent 70%),
-    radial-gradient(50% 42% at 80% 76%, rgba(90, 210, 244, 0.20), transparent 72%),
-    linear-gradient(158deg, #05131c 0%, #000 64%);
-  animation: onboard-tide 24s var(--ease-standard) infinite alternate;
-}
-@keyframes onboard-tide { to { transform: translate3d(0, -3%, 0) scale(1.07); } }
+.onboard__wash { display: none; }
 
 .onboard__col {
   position: relative;
   width: 100%;
-  max-width: 556px;
+  max-width: 560px;
   padding-inline: 24px;
-  padding-block: clamp(24px, 7vh, 76px) 56px;
+  padding-block: clamp(24px, 8vh, 88px) 56px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -60,18 +23,14 @@
 .onboard__panel {
   position: relative;
   overflow: hidden;
-  padding: 30px 32px 32px;
+  padding: 32px 36px 36px;
   border-radius: var(--r-modal);
-  background: var(--onboard-pane);
-  backdrop-filter: var(--backdrop-blur, none);
-  box-shadow: inset 0 0 0 1px var(--border-hairline), var(--shadow-3);
-  animation: onboard-panel-in 560ms var(--ease-out) both;
+  background: var(--bg-surface);
+  animation: onboard-panel-in var(--dur) var(--ease) both;
 }
-.onboard__panel--hero { padding-block: 36px 34px; }
+.onboard__panel--hero { padding-block: 40px 36px; }
 
-@keyframes onboard-panel-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.985); }
-}
+@keyframes onboard-panel-in { from { opacity: 0; } }
 
 /* Three segments riding the panel's top edge: where you are, without a word spent on it. */
 .onboard__rail {
@@ -86,7 +45,7 @@
   position: relative;
   flex: 1;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.10);
+  background: var(--bg-active);
 }
 .onboard__rail-seg::after {
   content: '';
@@ -95,172 +54,117 @@
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: 0 50%;
-  transition: transform calc(var(--dur-4) * 2) var(--ease-out);
+  transition: transform 400ms var(--ease);
 }
 .onboard__rail-seg[data-state="done"]::after,
 .onboard__rail-seg[data-state="on"]::after { transform: none; }
-.onboard__rail-seg[data-state="on"]::after {
-  background: linear-gradient(90deg, var(--accent) 34%, color-mix(in srgb, var(--accent) 16%, transparent));
-}
 
-/* Each step remounts the stage, so its children rise in one after another. */
-.onboard__stage > * { animation: onboard-rise var(--dur-4) var(--ease-out) both; }
-.onboard__stage > *:nth-child(2) { animation-delay: 50ms; }
-.onboard__stage > *:nth-child(3) { animation-delay: 100ms; }
-.onboard__stage > *:nth-child(4) { animation-delay: 150ms; }
-.onboard__stage > *:nth-child(5) { animation-delay: 200ms; }
-.onboard__stage > *:nth-child(n + 6) { animation-delay: 250ms; }
-
-@keyframes onboard-rise {
-  from { opacity: 0; transform: translateY(10px); }
-}
+.onboard__stage > * { animation: onboard-rise var(--dur) var(--ease) both; }
+@keyframes onboard-rise { from { opacity: 0; } }
 
 .onboard__mark {
   position: relative;
   width: 56px;
   height: 56px;
-  margin-bottom: 24px;
-}
-.onboard__mark::before {
-  content: '';
-  position: absolute;
-  inset: -26px;
-  background: radial-gradient(46% 46% at 50% 50%, rgba(255, 178, 36, 0.16), transparent 72%);
+  margin-bottom: 28px;
 }
 .onboard__mark svg { position: relative; width: 100%; height: 100%; overflow: visible; }
 
-/* Each current draws itself on, then the pair breathes together. The dash length is the
-   curve's own length rounded up, so the stroke is fully hidden before it runs. */
 .onboard__current {
   fill: none;
   stroke-width: 7;
   stroke-linecap: round;
   stroke-dasharray: 56;
   stroke-dashoffset: 56;
-  animation:
-    onboard-draw 780ms var(--ease-out) forwards,
-    onboard-swell 5400ms var(--ease-standard) infinite;
-  animation-delay: calc(var(--i) * 160ms), calc(940ms + var(--i) * 200ms);
+  animation: onboard-draw 780ms var(--ease) forwards;
+  animation-delay: calc(var(--i) * 160ms);
 }
 @keyframes onboard-draw { to { stroke-dashoffset: 0; } }
-@keyframes onboard-swell {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
 
 .onboard__kicker {
   display: flex;
   align-items: center;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: var(--lh-micro);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
 }
-.onboard__kicker--rail { animation: onboard-rise var(--dur-3) var(--ease-out) both; }
-.onboard__kicker-dot { margin-inline: 7px; color: var(--text-disabled); }
+.onboard__kicker--rail { animation: onboard-rise var(--dur) var(--ease) both; }
+.onboard__kicker-dot { margin-inline: 7px; color: var(--text-tertiary); }
 
 .onboard__title { color: var(--text-primary); text-wrap: balance; margin-block: 12px 10px; }
-.onboard__lede { margin-bottom: 22px; }
+.onboard__lede { margin-bottom: 24px; color: var(--text-secondary); }
+.onboard__lede.sm { font-size: var(--fs-body); line-height: var(--lh-body); }
 
-.onboard__kinds { display: flex; flex-direction: column; gap: 10px; }
+.onboard__kinds { display: flex; flex-direction: column; gap: 8px; }
 .onboard__kind {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 15px 16px;
+  padding: 16px 18px;
   text-align: start;
   border-radius: var(--r-panel);
   background: var(--bg-raised);
-  box-shadow: inset 0 0 0 1px var(--border-hairline);
-  transition: background var(--dur-2) var(--ease-micro), box-shadow var(--dur-2) var(--ease-micro),
-              transform var(--dur-2) var(--ease-out);
+  transition: background-color var(--dur) var(--ease);
 }
-.onboard__kind:hover {
-  background: var(--bg-hover);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
-  transform: translateY(-1px);
-}
-.onboard__kind:active { transform: none; }
+.onboard__kind:hover { background: var(--bg-hover); }
 
 .onboard__kind-glyph {
   flex: none;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: var(--r-card);
+  border-radius: var(--r-control);
   background: var(--bg-active);
-  box-shadow: inset 0 0 0 1px var(--border-hairline);
   color: var(--text-secondary);
-  transition: background var(--dur-2) var(--ease-micro), color var(--dur-2) var(--ease-micro);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .onboard__kind:hover .onboard__kind-glyph { background: var(--accent-dim); color: var(--accent); }
 
 .onboard__kind-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .onboard__kind-title { color: var(--text-primary); }
-.onboard__kind-body { line-height: 16px; }
+.onboard__kind-body { color: var(--text-secondary); }
 
 .onboard__kind-go {
   flex: none;
   align-self: center;
   display: grid;
   place-items: center;
-  color: var(--text-disabled);
-  transition: color var(--dur-2) var(--ease-micro), transform var(--dur-2) var(--ease-out);
+  color: var(--text-tertiary);
+  transition: color var(--dur) var(--ease);
 }
-.onboard__kind:hover .onboard__kind-go { color: var(--accent); transform: translateX(3px); }
+.onboard__kind:hover .onboard__kind-go { color: var(--text-primary); }
 
 .onboard .mx-report { margin-top: 20px; }
 
 .onboard__acts { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
-/* Nothing sits between the lede and the button on the welcome screen, so the two margins
-   would otherwise stack into a gap twice the size of every other one on the panel. */
 .onboard__lede + .onboard__acts { margin-top: 4px; }
-.onboard__acts .btn { height: 36px; }
+.onboard__acts .btn { height: 38px; }
 .onboard__spacer { flex: 1; }
 
-/* The one button on the welcome screen. It carries the amber bloom the rest of the app keeps
-   for the accent line, because here there is nothing else to look at. */
-.onboard__go {
-  padding-inline: 18px;
-  box-shadow: 0 12px 32px -14px rgba(255, 178, 36, 0.85);
-}
-.onboard__go svg { transition: transform var(--dur-2) var(--ease-out); }
-.onboard__go:hover svg { transform: translateX(3px); }
-
+.onboard__go { padding-inline: 18px; }
 .onboard__finish { flex: 1; }
-.onboard__finish:not(:disabled) { box-shadow: 0 12px 32px -14px rgba(255, 178, 36, 0.85); }
 
-.onboard__phases { display: flex; flex-direction: column; margin-top: 4px; }
-.onboard__phase { position: relative; display: flex; align-items: center; gap: var(--s-4); height: 36px; }
-.onboard__phase + .onboard__phase::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  inset-inline: 0;
-  height: 1px;
-  background: var(--border-hairline);
+.onboard__phases { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.onboard__phase {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: 40px;
+  padding-inline: 14px;
+  border-radius: var(--r-control);
+  background: var(--bg-raised);
 }
-.onboard__phase-label {
-  flex: none;
-  width: 116px;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  line-height: var(--lh-micro);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-.onboard__phase--pending .onboard__phase-label { color: var(--text-faint); }
+.onboard__phase-label { flex: none; width: 116px; color: var(--text-secondary); }
+.onboard__phase--pending .onboard__phase-label { color: var(--text-tertiary); }
 .onboard__phase--busy .onboard__phase-label { color: var(--text-primary); }
 .onboard__phase--bad .onboard__phase-label { color: var(--danger); }
 
 .onboard__phase-state { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
 .onboard__phase-bar { max-width: 180px; }
-.onboard__dots { color: var(--text-disabled); font-family: var(--font-mono); letter-spacing: 0.22em; }
-.onboard__tick { display: grid; place-items: center; color: var(--status-ok); }
+.onboard__dots { color: var(--text-disabled); letter-spacing: 0.22em; }
+.onboard__tick { display: grid; place-items: center; color: var(--accent); }
 .onboard__bad { display: grid; place-items: center; color: var(--danger); }
 .onboard__tick svg, .onboard__bad svg { stroke-width: 2; }
 .onboard__msg { margin-top: 14px; }
@@ -268,30 +172,20 @@
 .onboard__counts {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px 24px;
+  gap: 16px 24px;
   margin-top: 22px;
-  padding: 16px;
+  padding: 18px;
   border-radius: var(--r-panel);
   background: var(--bg-raised);
-  box-shadow: inset 0 0 0 1px var(--border-hairline);
 }
-/* The one place a number is the point rather than a detail, so it is read at heading size. */
 .onboard__count {
   display: block;
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-h1);
-  line-height: var(--lh-h1);
-  letter-spacing: -0.01em;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: var(--ls-section);
 }
-.onboard__count-label {
-  display: block;
-  margin-top: 2px;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
+.onboard__count-label { display: block; margin-top: 2px; color: var(--text-secondary); font-size: var(--fs-sm); line-height: var(--lh-sm); }
 
 .onboard__foot { text-align: center; color: var(--text-tertiary); }
 
@@ -302,7 +196,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .onboard__wash::after { animation: none; }
   .onboard__current { animation: none; stroke-dashoffset: 0; }
   .onboard__panel, .onboard__stage > *, .onboard__kicker--rail { animation: none; }
 }

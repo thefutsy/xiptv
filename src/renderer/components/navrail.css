@@ -3,7 +3,7 @@
   z-index: calc(var(--z-chrome) + 1);
   flex: none;
   width: var(--w-rail);
-  padding: 8px 8px 12px;
+  padding: 8px 4px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding-inline: 2px;
+  padding-inline: 0;
   border-radius: var(--r-control);
   color: var(--text-secondary);
   overflow: hidden;
@@ -37,7 +37,7 @@
   text-overflow: ellipsis;
   font-size: var(--fs-micro);
   line-height: var(--lh-micro);
-  letter-spacing: var(--ls-micro);
+  letter-spacing: -0.006em;
   font-weight: var(--fw-medium);
 }
 

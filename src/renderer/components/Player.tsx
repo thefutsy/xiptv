@@ -580,7 +580,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
               ? <LogoPlate item={item} size="large" />
               : <Poster item={item} className="castscreen__poster" />}
           </div>
-          <h2 className="serif-2 castscreen__title" dir="auto">{item.title || item.name}</h2>
+          <h2 className="t-title castscreen__title" dir="auto">{item.title || item.name}</h2>
           <p className="castscreen__to sm">Casting to {cast.device?.name ?? 'your television'}</p>
         </div>
       )}
@@ -884,7 +884,7 @@ function InfoPanel({
 
       {genres.length > 0 && (
         <div className="info__genres">
-          {genres.map((g) => <span key={g} className="info__genre micro">{g}</span>)}
+          {genres.map((g) => <span key={g} className="info__genre sm">{g}</span>)}
         </div>
       )}
 

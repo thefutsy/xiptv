@@ -53,13 +53,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 20px;
-  padding-inline: 6px;
+  height: 22px;
+  padding-inline: 7px;
   border-radius: var(--r-chip);
   background: var(--bg-raised);
   color: var(--text-secondary);
-  font-size: var(--fs-micro);
-  line-height: var(--lh-micro);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   font-weight: var(--fw-medium);
   white-space: nowrap;
   overflow: hidden;

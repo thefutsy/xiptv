@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, Delete, ListFilter } from 'lucide-react';
 import type { Category, MediaKind } from '@shared/types';
 import { useApp, type Route } from '@/state/store';
-import { Button, CategoryLabel, CategoryTag, prefixText, Skeleton, Tally } from '@/components/Primitives';
+import { Button, CategoryLabel, CategoryTag, Skeleton, Tally } from '@/components/Primitives';
 import {
   EMPTY_FACETS, activeFacetCount, deriveDecades, deriveGenres, fold, isAdultCategory, parseCategory,
   toggleIn, type Facets,
@@ -200,15 +200,17 @@ export function ContextColumn() {
     [all, hideAdult],
   );
   const foldedNames = useMemo(() => listed.map((c) => fold(c.name)), [listed]);
-  // The gutter fits the longest prefix this list actually carries; a freak one truncates.
-  const tagCh = useMemo(
-    () => listed.reduce((n, c) => Math.max(n, prefixText(parseCategory(c).chips).length), 2),
-    [listed],
-  );
   const visible = useMemo(() => {
     const needle = fold(query.trim());
     return needle ? listed.filter((_, i) => foldedNames[i].includes(needle)) : listed;
   }, [listed, foldedNames, query]);
+
+  // 358 categories deep, the one you are looking at should be on screen.
+  const chosenId = kind ? selected[kind] : undefined;
+  const selectedIndex = useMemo(
+    () => (chosenId ? visible.findIndex((c) => c.id === chosenId) : -1),
+    [visible, chosenId],
+  );
 
   if (!kind) return null;
 
@@ -220,7 +222,7 @@ export function ContextColumn() {
   };
 
   return (
-    <aside className="context" aria-label="Categories" style={{ '--cat-tag-ch': tagCh } as CSSProperties}>
+    <aside className="context" aria-label="Categories">
       <div className="context__head">
         <div className="context__field">
           <input
@@ -261,7 +263,7 @@ export function ContextColumn() {
           {query ? 'No categories match that filter.' : 'This source listed no categories.'}
         </p>
       ) : (
-        <VList className="context__list" count={visible.length} rowHeight={ROW_H}>
+        <VList className="context__list" count={visible.length} rowHeight={ROW_H} scrollToIndex={selectedIndex}>
           {(index) => {
             const category = visible[index];
             const isSelected = category.id === chosen;

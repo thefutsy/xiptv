@@ -59,9 +59,9 @@
 
 .context__label { flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 
-/* The tag column is as wide as the longest prefix in this list (capped), so every label in the
-   column starts on the same x and an untagged row keeps its place. `ch` is measured on the tag
-   itself, where the font is 12px, not on the 15px label around it. */
+/* The tag hugs its own text on a two-character floor, so the column lines up on the country codes
+   that carry almost every row, and a rare long tag pushes only its own label right rather than
+   costing 358 category names their width. */
 .context .catlabel {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -69,7 +69,7 @@
   align-items: center;
 }
 .context .cattag {
-  width: min(calc(var(--cat-tag-ch, 3) * 1ch + 12px), 88px);
+  min-width: 34px;
   background: var(--bg-hover);
 }
 /* An untagged row keeps the cell so its label stays on the column's x. */

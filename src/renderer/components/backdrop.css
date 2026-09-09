@@ -2,7 +2,7 @@
    scrimmed back out of the middle of the content, which is where the baseline's field cost
    contrast. Every pane over it stays at least 84% opaque, so text keeps its ratios. */
 .backdrop {
-  --backdrop-strength: 0.5;
+  --backdrop-strength: 0.92;
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -15,10 +15,10 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  filter: grayscale(1) brightness(0.62);
+  filter: grayscale(1) contrast(1.08);
   animation: backdrop-in 1200ms var(--ease) 60ms forwards;
   /* Stands in for the canvas under reduced motion, and while WebGL warms up. */
-  background: linear-gradient(150deg, #17171b, #26262d 55%, #191a1e);
+  background: linear-gradient(150deg, #1e1e24, #3a3a46 55%, #212128);
 }
 
 .backdrop__field canvas { transform: rotate(180deg); }
@@ -28,9 +28,9 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(62% 62% at 64% 52%, rgba(15, 15, 17, 0.78), rgba(15, 15, 17, 0) 100%),
+    radial-gradient(58% 58% at 62% 50%, rgba(15, 15, 17, 0.46), rgba(15, 15, 17, 0) 100%),
     linear-gradient(to bottom,
-      rgba(15, 15, 17, 0.52) 0%, rgba(15, 15, 17, 0.14) 34%, rgba(15, 15, 17, 0.40) 100%);
+      rgba(15, 15, 17, 0.30) 0%, rgba(15, 15, 17, 0) 34%, rgba(15, 15, 17, 0.22) 100%);
 }
 
 @keyframes backdrop-in { to { opacity: var(--backdrop-strength); } }
@@ -41,8 +41,10 @@
 
 .shell--shader {
   position: relative;
-  --backdrop-chrome: color-mix(in srgb, var(--bg-app) 84%, transparent);
-  --backdrop-pane: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  /* 70/82 is the floor these can take: it puts the brightest point of the field at ~33/255 behind
+     content, where the palette's faintest text (--text-tertiary) still clears 4.6:1. */
+  --backdrop-chrome: color-mix(in srgb, var(--bg-app) 70%, transparent);
+  --backdrop-pane: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   --backdrop-blur: blur(18px);
 }
 

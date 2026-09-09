@@ -487,6 +487,8 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
   const style = {
     '--span-min': spanMin,
     '--now-min': nowMin,
+    /* Blocks read this to keep their label at the visible left edge of the timeline. */
+    '--scroll-left': `${view.left}px`,
   } as CSSProperties;
 
   if (!all.length) {
@@ -562,12 +564,15 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                 <span className="sm">Guide data only</span>
               </button>
             </div>
-            {/* The now pill is opaque and centred on the minute; a label under it would peek out. */}
-            {hours.filter((m) => Math.abs((m - nowMin) * ppm) > 60).map((m) => (
-              <span key={m} className="guide__hour data" style={{ '--m0': m } as CSSProperties}>
-                {formatClock(base + m * 60)}
-              </span>
-            ))}
+            {/* Hidden under the channel column, and under the opaque now pill, either would leave
+                a stray digit at the edge. */}
+            {hours
+              .filter((m) => m * ppm - view.left > 12 && Math.abs((m - nowMin) * ppm) > 60)
+              .map((m) => (
+                <span key={m} className="guide__hour data" style={{ '--m0': m } as CSSProperties}>
+                  {formatClock(base + m * 60)}
+                </span>
+              ))}
             <span className="guide__pill data">{formatClock(now)}</span>
             <div className="guide__cap" aria-hidden><Tally /></div>
           </div>

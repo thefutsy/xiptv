@@ -731,16 +731,19 @@
 }
 .guide__block:hover { background: var(--bg-hover); }
 
-/* A block that started before the visible window keeps its words at the window's edge. */
+/* A block that started before the visible window keeps its words at the window's edge. `sticky`
+   cannot do this: .guide__row carries `contain: strict`, whose paint containment makes the row the
+   containing block, so the offset is driven off the scroll position instead. No upper bound: a
+   block nearly scrolled away should be cut by its own edge mid-title rather than have its label
+   parked at the end, which is what shows a fragment like "hitn" instead of "Whit". */
 .guide__block-text {
-  position: sticky;
-  inset-inline-start: calc(var(--w-gutter) + 10px);
   display: flex;
   flex-direction: column;
   gap: 1px;
   width: fit-content;
   max-width: 100%;
   min-width: 0;
+  margin-inline-start: max(0px, calc(var(--scroll-left, 0px) - var(--m0) * var(--ppm)));
 }
 .guide__block[data-focused] {
   background: var(--bg-active);

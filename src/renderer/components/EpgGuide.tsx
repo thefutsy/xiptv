@@ -790,6 +790,11 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
            title there reads as debris rather than as a label, so it renders plain. */
         const sliver = (slot.startMin + slot.durMin) * p.ppm - p.scrollLeft < 40;
 
+        /* This channel keeps an archive, so a finished programme can be played from its start.
+           Said in a word: at 12px the rotate glyph that used to mark it lost its arrowhead and
+           read as a bare ring. Only where the block has room for the words. */
+        const catchUp = past && item.hasArchive === true && width >= 200;
+
         return (
           <div
             key={slot.key}
@@ -817,12 +822,10 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
                 {tier === 'full' && (
                   <span className="guide__block-time data">
                     {formatClock(prog.start)} – {formatClock(prog.stop)}
+                    {catchUp && <span className="guide__catchup">Catch up</span>}
                   </span>
                 )}
               </span>
-            )}
-            {past && item.hasArchive === true && tier !== 'word' && (
-              <span className="guide__archive" aria-hidden><RotateCcw size={12} strokeWidth={1.5} /></span>
             )}
           </div>
         );

@@ -788,17 +788,10 @@
   background: var(--accent);
 }
 
-.guide__archive {
-  position: absolute;
-  top: 50%;
-  inset-inline-end: 8px;
-  translate: 0 -50%;
-  display: grid;
-  place-items: center;
-  color: var(--text-tertiary);
-  transition: color var(--dur) var(--ease);
-}
-.guide__block:hover .guide__archive { color: var(--text-primary); }
+/* A finished programme on a channel that keeps an archive can be played from its start. */
+.guide__catchup { color: var(--text-secondary); }
+.guide__catchup::before { content: '·'; margin-inline: 6px; color: var(--text-tertiary); }
+.guide__block:hover .guide__catchup { color: var(--text-primary); }
 
 .guide__hair {
   width: 1px;

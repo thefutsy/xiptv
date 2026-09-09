@@ -1,5 +1,5 @@
 /* V3 "Quiet". One typeface, one accent, neutral greys. Regions are told apart by tone and
-   spacing, never by a line. The only borders in the app belong to inputs' focus rings. */
+   spacing, never by a line. */
 :root {
   --bg-app:      #0F0F11;
   --bg-surface:  #151518;
@@ -7,20 +7,18 @@
   --bg-hover:    #222226;
   --bg-active:   #2A2A30;
   --bg-plate:    #1C1C20;
-  --bg-sunken:   #0F0F11;
   --bg-overlay:  rgba(15, 15, 17, 0.74);
 
   --text-primary:   #F2F2F4;
   --text-prose:     #D6D6DB;
   --text-secondary: #A3A3AB;
-  /* Lifted from the concept's #70707A: that sat at 3.7:1 on the surface. This one clears 4.5:1
-     on the surface, the raised tone and the hover tone. */
+  /* The concept's #70707A sat at 3.7:1 on the surface. This one clears 4.5:1 on the surface,
+     the raised tone and the hover tone. */
   --text-tertiary:  #8A8A93;
   /* Genuinely inert controls only. */
   --text-disabled:  #5C5C66;
   --on-accent:      #0F0F11;
 
-  /* The guide's hour grid and the scrollbar thumb are the only things drawn as lines. */
   --line: rgba(255, 255, 255, 0.07);
   --line-strong: rgba(255, 255, 255, 0.14);
 
@@ -94,7 +92,7 @@
   --z-toast: 100;
 }
 
-/* The palette scrim is the one blurred surface left. Both hooks turn it off. */
+/* Both transparency opt-outs drop every backdrop-filter, wherever it was set. */
 :root[data-transparency="off"],
 :root[data-transparency="off"] * {
   backdrop-filter: none !important;

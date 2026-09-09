@@ -17,7 +17,7 @@
   z-index: var(--z-sticky);
 }
 
-/* The page header: a 28px title over a 13px line. Opaque, so scrolling content slides under. */
+/* Opaque, so the page scrolls under it. */
 .browse__header {
   display: flex;
   align-items: center;
@@ -58,7 +58,6 @@
 
 .browse__tools { flex: none; display: flex; align-items: center; gap: var(--s-2); }
 
-/* A menu button is a text button. */
 .menu { position: relative; display: inline-flex; }
 
 .menu__trigger {
@@ -106,7 +105,6 @@
 .menu__tick { flex: none; width: 16px; display: grid; place-items: center; color: var(--text-primary); }
 .menu__trailing { flex: none; margin-inline-start: auto; color: var(--text-tertiary); font-size: var(--fs-sm); }
 
-/* Landing rails. */
 .landing { padding-block-start: var(--s-3); }
 
 .rail + .rail { margin-block-start: 40px; }
@@ -169,7 +167,6 @@
 .rail__item--wide { width: 280px; }
 .rail__item .mcard { height: auto; }
 
-/* A plain chevron sitting in the fade; the fade does the framing. */
 .rail__arrow {
   position: absolute;
   z-index: 1;
@@ -189,7 +186,6 @@
 .rail__body:hover .rail__arrow.is-live { opacity: 1; pointer-events: auto; }
 .rail__arrow:hover { background: var(--bg-raised); }
 
-/* Poster card: artwork, a title line, a facts line. Hover brightens the artwork, nothing else. */
 .mcard {
   position: relative;
   display: flex;
@@ -257,7 +253,6 @@
 .mcard__meta { flex: none; height: 18px; overflow: hidden; }
 
 .mcard--skeleton { cursor: default; }
-.mcard--skeleton .mcard__poster { position: absolute; inset: 0; }
 .mcard__skel { height: 12px; border-radius: var(--r-chip); }
 .mcard__skel--title { width: 78%; margin-block-start: 4px; }
 .mcard__skel--one { width: 62%; margin-block-start: 4px; }
@@ -266,7 +261,6 @@
 .mcard--skeleton:nth-child(2n) .skeleton { animation-delay: 120ms; }
 .mcard--skeleton:nth-child(3n) .skeleton { animation-delay: 240ms; }
 
-/* Continue Watching card: a 16:9 still with a progress line. */
 .ccard {
   position: relative;
   display: flex;
@@ -315,7 +309,7 @@
 }
 .ccard__progress { display: block; height: 100%; min-width: 3px; background: var(--accent); }
 
-/* Detail page: a reading column, poster left, text right. */
+/* Every band on the detail page lines up on this inset. */
 .detail {
   --detail-max: 1080px;
   --detail-inset: max(var(--pad-page), calc((100% - var(--detail-max)) / 2));
@@ -356,11 +350,12 @@
 }
 
 .detail__actions { margin-block-start: var(--s-3); display: flex; flex-direction: column; gap: 2px; }
-.detail__action.btn { width: 100%; justify-content: flex-start; height: 36px; padding-inline: 10px; margin-inline: -10px; width: calc(100% + 20px); }
+.detail__action.btn { width: calc(100% + 20px); justify-content: flex-start; height: 36px; padding-inline: 10px; margin-inline: -10px; }
 .detail__action.btn > svg { color: var(--text-tertiary); }
 .detail__action.btn:hover > svg { color: var(--text-primary); }
 
-/* The 40px title's cap height sits 8px into its line box; pulling the column up puts it on the poster's top edge. */
+/* The 40px title's cap height sits 8px into its line box, so pulling the column up by that much
+   puts the title on the poster's top edge. */
 .detail__main { flex: 1 1 auto; min-width: 0; max-width: 680px; margin-block-start: -8px; }
 
 .detail__title {
@@ -401,7 +396,6 @@
 }
 .detail__more:hover { color: var(--text-primary); }
 
-/* Genres are words, not chips. */
 .detail__genres { margin-block-start: var(--s-4); display: flex; flex-wrap: wrap; align-items: baseline; }
 .detail__genre {
   color: var(--text-secondary);
@@ -412,7 +406,6 @@
 .detail__genre:hover { color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
 .detail__genre + .detail__genre::before { content: '·'; margin-inline: 10px; color: var(--text-tertiary); }
 
-/* Credits: label in secondary, value in primary, no rules. */
 .spec { margin-block-start: var(--s-7); display: flex; flex-direction: column; gap: 10px; }
 .spec__row { display: flex; align-items: baseline; gap: var(--s-4); }
 .spec__label {
@@ -434,7 +427,6 @@
   overflow: hidden;
 }
 
-/* Seasons. */
 .season-bar {
   position: sticky;
   inset-block-start: 0;
@@ -481,7 +473,6 @@
 .season-tab.is-empty { color: var(--text-disabled); cursor: default; }
 .season-tab__count { color: var(--text-tertiary); font-size: var(--fs-sm); font-weight: var(--fw-body); }
 
-/* Episode rows: still, number, title, a line of synopsis, duration. No rules. */
 .episode {
   position: relative;
   display: flex;
@@ -507,7 +498,6 @@
 }
 .episode:hover .episode__still { background: var(--bg-hover); }
 .episode__img { width: 100%; height: 100%; object-fit: cover; }
-.episode__hatch { position: absolute; inset: 0; border-radius: 0; background: transparent; }
 .episode__ghost {
   position: absolute;
   inset: 0;
@@ -575,7 +565,6 @@
 .episode.is-done .episode__watch { opacity: 1; color: var(--text-secondary); }
 
 .episode--skeleton { cursor: default; pointer-events: none; }
-.episode--skeleton .episode__img { width: 100%; height: 100%; }
 .episodes__loading { padding-block-start: var(--s-2); }
 
 .episodes__hole { padding: var(--s-6) var(--detail-inset); }
@@ -591,7 +580,6 @@
   overflow: hidden;
   background: var(--bg-raised);
 }
-.no-episodes__bed { display: none; }
 .no-episodes__body {
   position: relative;
   padding: var(--s-7) var(--s-6);

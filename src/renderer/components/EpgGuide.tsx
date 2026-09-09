@@ -564,8 +564,8 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                 <span className="sm">Guide data only</span>
               </button>
             </div>
-            {/* Hidden under the channel column, and under the opaque now pill, either would leave
-                a stray digit at the edge. */}
+            {/* An hour label under the channel column or under the opaque now pill would show
+                only a stray digit at its edge, so those two are dropped. */}
             {hours
               .filter((m) => m * ppm - view.left > 12 && Math.abs((m - nowMin) * ppm) > 60)
               .map((m) => (
@@ -708,7 +708,7 @@ interface GuideRowProps {
   scrollLeft: number;
   absenceLeft: number;
   absenceWidth: number;
-  /** Where the visible left edge of the timeline is, so a "No guide data" lane says so once. */
+  /** Left edge of the visible timeline, so a lane with no listings shows its label in view. */
   voidLabelLeft: number;
   onTune: (i: MediaItem) => void;
   onArchive: (i: MediaItem, p: EpgProgramme) => void;
@@ -786,13 +786,11 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
           ? { ...vars, '--elapsed': `${progressThrough(prog.start, prog.stop, p.now) * 100}%` } as CSSProperties
           : vars;
 
-        /* A block scrolled almost off the left keeps only a sliver on screen. A glyph or two of its
-           title there reads as debris rather than as a label, so it renders plain. */
+        /* Under 40px of the block is still on screen, too narrow for a title, so the text goes. */
         const sliver = (slot.startMin + slot.durMin) * p.ppm - p.scrollLeft < 40;
 
-        /* This channel keeps an archive, so a finished programme can be played from its start.
-           Said in a word: at 12px the rotate glyph that used to mark it lost its arrowhead and
-           read as a bare ring. Only where the block has room for the words. */
+        /* A finished programme on a channel with an archive can be played from its start. The
+           marker is words rather than a glyph, unreadable at 12px, so the block has to be wide. */
         const catchUp = past && item.hasArchive === true && width >= 200;
 
         return (

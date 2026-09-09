@@ -16,11 +16,10 @@
   position: relative;
 }
 
-/* A row's end column ends where the header's last control ends: the page margin plus the 12px the
-   control keeps inside its own hit area. */
+/* A row's end column ends where the header's last control ends, which is the page margin plus
+   the 12px that control keeps inside its own hit area. */
 .mx-row, .library__cont { padding-inline-end: calc(var(--pad-page) + 12px); }
 
-/* The shared page header: title over a facts line, tools at the right. */
 .mx-head {
   position: sticky;
   top: 0;
@@ -51,7 +50,6 @@
 .mx-section-label__act { color: var(--text-secondary); font-size: var(--fs-body); font-weight: var(--fw-body); }
 .mx-section-label__act:hover { color: var(--text-primary); }
 
-/* Tabs: text buttons; the chosen one sits on the raised tone. */
 .mx-seg { flex: none; display: inline-flex; align-items: center; gap: 2px; }
 .mx-seg__opt {
   height: 32px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px;
@@ -65,7 +63,6 @@
 .mx-seg__opt--on { background: var(--bg-active); color: var(--text-primary); }
 .mx-seg__count { color: var(--text-tertiary); font-size: var(--fs-sm); font-weight: var(--fw-body); }
 
-/* Sort: a text control. */
 .mx-select {
   position: relative; flex: none; height: 32px;
   display: inline-flex; align-items: center; gap: 6px;
@@ -98,7 +95,6 @@
 .mx-icon-btn--on { color: var(--text-secondary); }
 .mx-icon-btn--on svg { fill: currentColor; }
 
-/* The kind of a thing is a word, not a chip. */
 .mx-kind { flex: none; color: var(--text-tertiary); font-size: var(--fs-sm); white-space: nowrap; }
 
 .mx-tog {
@@ -188,7 +184,6 @@
 .mx-report__count { display: block; font-size: var(--fs-section); line-height: var(--lh-section); color: var(--text-primary); }
 .mx-report__count-label { display: block; margin-top: 2px; color: var(--text-secondary); }
 
-/* Result cards: the same poster card as the browse grid. */
 .mx-card { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
 .mx-card__art {
   position: relative; width: 100%; flex: none; overflow: hidden;
@@ -197,7 +192,6 @@
 .mx-card__art .poster { width: 100%; height: 100%; border-radius: 0; }
 .mx-card__art .poster__img { object-position: 50% 20%; transition: opacity 180ms var(--ease), filter var(--dur) var(--ease); }
 .mx-card:hover .mx-card__art .poster__img { filter: brightness(1.08); }
-.mx-card__frame { display: none; }
 .mx-card__open { position: absolute; inset: 0; }
 .mx-card__play {
   position: absolute; inset: 0; margin: auto;
@@ -220,7 +214,6 @@
 }
 .mx-card__kicker { flex: none; height: 18px; overflow: hidden; }
 
-/* Result rows. */
 .mx-row { position: relative; height: 100%; display: flex; align-items: center; padding-inline-start: var(--pad-page); }
 .mx-row:hover { background: var(--bg-raised); }
 .mx-row__hit {
@@ -242,7 +235,6 @@
 .mx-row__act { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--dur) var(--ease); }
 .mx-row:hover .mx-row__act, .mx-row:focus-within .mx-row__act { opacity: 1; }
 
-/* Search. */
 /* This header sits outside its scroller, so it reserves the scroller's 10px gutter itself. */
 .search__head { flex-direction: column; align-items: stretch; gap: 14px; padding-block: 24px 16px; padding-inline-end: calc(var(--pad-page) + 10px); }
 .search__bar {
@@ -298,7 +290,6 @@
 .mx-facets__label { flex: none; width: 72px; padding-top: 6px; color: var(--text-secondary); font-size: var(--fs-sm); }
 .mx-facets__chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 
-/* Settings. */
 .settings__scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }
 .settings__head-name { color: var(--text-secondary); }
 .settings__body { max-width: 680px; padding-inline: var(--pad-page); padding-block: 0 72px; }
@@ -344,7 +335,7 @@
   background: var(--bg-raised);
   border-radius: var(--r-panel);
 }
-.settings__source .settings__editor { background: var(--bg-surface); margin-inline: -18px -18px; margin-bottom: -16px; border-radius: 0 0 var(--r-panel) var(--r-panel); }
+.settings__source .settings__editor { background: var(--bg-surface); margin-inline: -18px; margin-bottom: -16px; border-radius: 0 0 var(--r-panel) var(--r-panel); }
 .settings__source .settings__editor .mx-field__box { background: var(--bg-raised); }
 .settings__editor-acts { display: flex; align-items: center; gap: var(--s-2); }
 .settings__kindseg { align-self: flex-start; }
@@ -358,7 +349,6 @@
 .settings__sync { display: flex; flex-direction: column; gap: var(--s-2); padding-bottom: 14px; }
 .settings__sync-msg { display: flex; align-items: center; gap: var(--s-2); }
 
-/* Library. */
 .library__skel { display: flex; flex-direction: column; }
 .library__skel--wide { padding: var(--pad-page); }
 .library__skel-row { display: flex; align-items: center; gap: 16px; }

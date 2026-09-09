@@ -44,7 +44,7 @@
   gap: var(--s-4);
 }
 
-/* List / Guide: two text buttons in a raised trough. */
+/* The List / Guide toggle. */
 .live__seg {
   display: flex;
   flex: none;
@@ -130,7 +130,6 @@
 .live__list { flex: 1 1 auto; min-height: 0; scrollbar-gutter: stable; }
 .live__list--skeleton { overflow: hidden; }
 
-/* Channel rows: plate, name over programme, time at the right. Actions arrive on hover. */
 .live__row {
   position: relative;
   isolation: isolate;
@@ -210,7 +209,6 @@
 }
 .live__prog--none { color: var(--text-tertiary); }
 
-/* The 1px progress line under the programme. */
 .live__bar {
   grid-row: 3;
   align-self: end;
@@ -402,7 +400,6 @@
 .live__picker-empty { padding: 8px 10px; }
 .live__picker-acts { display: flex; justify-content: space-between; gap: 8px; }
 
-/* Preview panel: chrome tone, the same type as the list. */
 .live__preview {
   display: flex;
   flex: none;
@@ -458,7 +455,6 @@
 .live__fail-glyph { color: var(--danger); }
 .live__fail-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 
-/* Landing: favourites, recent categories, as tiles. */
 .live__landing {
   display: flex;
   flex: 1 1 auto;
@@ -508,7 +504,6 @@
 .live__card-body .catlabel { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--fw-medium); }
 .live__card-body .caption { color: var(--text-tertiary); }
 
-/* Guide. */
 .guide {
   position: relative;
   display: flex;
@@ -567,11 +562,13 @@
   overflow: auto;
   background: var(--bg-surface);
   overscroll-behavior: contain;
+  /* Chromium honours the WebKit scrollbar parts below only once the standard scrollbar properties
+     are back at auto, so this opts out of the global thin scrollbar. */
+  scrollbar-width: auto;
+  scrollbar-color: auto;
 }
-/* The gutter is sticky over the canvas, so the scrollbar tracks are inset to keep the thumbs under
-   the timeline. Chromium only honours the WebKit scrollbar parts once the standard scrollbar
-   properties are back at auto, hence the opt-out from the global thin scrollbar here. */
-.guide__scroll { scrollbar-width: auto; scrollbar-color: auto; }
+/* The gutter and the timeline are sticky over the canvas, so the tracks are inset to keep the
+   thumbs out from under them. */
 .guide__scroll::-webkit-scrollbar { width: 10px; height: 10px; }
 .guide__scroll::-webkit-scrollbar-track { background: transparent; }
 .guide__scroll::-webkit-scrollbar-track:horizontal { margin-left: var(--w-gutter, 300px); }
@@ -725,17 +722,18 @@
   padding: 6px 10px;
   background: var(--bg-raised);
   border-radius: var(--r-card);
-  /* clip, not hidden: a scroll container here would stop the label sticking to the timeline's edge. */
+  /* clip, not hidden. hidden makes a scroll container, which would stop the label sticking
+     to the timeline's edge. */
   overflow: clip;
   transition: background-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
 .guide__block:hover { background: var(--bg-hover); }
 
 /* A block that started before the visible window keeps its words at the window's edge. `sticky`
-   cannot do this: .guide__row carries `contain: strict`, whose paint containment makes the row the
-   containing block, so the offset is driven off the scroll position instead. No upper bound: a
-   block nearly scrolled away should be cut by its own edge mid-title rather than have its label
-   parked at the end, which is what shows a fragment like "hitn" instead of "Whit". */
+   cannot do this, because .guide__row carries `contain: strict`, whose paint containment makes the
+   row the containing block, so the offset is driven off the scroll position instead. There is no upper
+   bound, so a block nearly scrolled away is cut by its own edge mid-title rather than having its
+   label parked at the end, which is what shows a fragment like "hitn" instead of "Whit". */
 .guide__block-text {
   display: flex;
   flex-direction: column;
@@ -771,7 +769,7 @@
   white-space: nowrap;
 }
 
-/* A past block recedes by losing its fill, not by dimming its contents: opacity on the block
+/* A past block recedes by losing its fill, not by dimming its contents. Opacity on the block
    multiplied the time line's tertiary colour down to 2.4:1 against its own background. */
 .guide__block[data-state='past'] { background: color-mix(in srgb, var(--bg-raised) 58%, transparent); }
 .guide__block[data-state='past'] .guide__block-title { color: var(--text-secondary); }
@@ -799,8 +797,7 @@
 }
 .guide__hair::after { content: ''; position: absolute; inset: -2px -4px; }
 
-/* A gap is just the surface with a quiet word; a lane with no guide says so once, at its edge. */
-.absence.guide__gap { background: transparent; border-radius: var(--r-card); }
+.absence.guide__gap { background: transparent; }
 .guide__void-label {
   position: absolute;
   top: 0;

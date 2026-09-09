@@ -1,6 +1,5 @@
-/* The ambient field. Neutral, slow and very quiet: it breathes at the edges of the shell and is
-   scrimmed back out of the middle of the content, which is where the baseline's field cost
-   contrast. Every pane over it stays at least 84% opaque, so text keeps its ratios. */
+/* The ambient field. It shows at the edges of the shell and is scrimmed back out of the middle,
+   where the content sits. The panes over it stay mostly opaque, so text keeps its contrast. */
 .backdrop {
   --backdrop-strength: 1;
   position: absolute;
@@ -15,8 +14,7 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  /* saturate() preserves luma by construction, so chroma is the one lever that raises the field's
-     visibility without moving a single contrast ratio. */
+  /* saturate() leaves luma alone, so it raises the field without moving a contrast ratio. */
   filter: saturate(1.7);
   animation: backdrop-in 1200ms var(--ease) 60ms forwards;
   /* Stands in for the canvas under reduced motion, and while WebGL warms up. */
@@ -43,15 +41,14 @@
 
 .shell--shader {
   position: relative;
-  /* The panes are what the field has to survive, so they carry most of its visibility: at 82% only
-     18% of the field reached the eye. Hue does the rest of the work, which costs far less contrast
+  /* The panes carry most of the field's visibility. Hue does the rest, which costs less contrast
      than the same gain in brightness would. */
   --backdrop-chrome: color-mix(in srgb, var(--bg-app) 64%, transparent);
   --backdrop-pane: color-mix(in srgb, var(--bg-surface) 78%, transparent);
-  /* Sticky headers paint on top of the content pane, so their alpha compounds with it: 30% over
-     82% totals ~87%, enough to hold back what scrolls under while the field still runs through
-     them. They carry no backdrop-filter: on a nested scroller Chromium paints a blurred element
-     as fully opaque, which is what banded the episodes section. */
+  /* Sticky headers paint on top of the content pane, so their alpha compounds with it, enough to
+     hold back what scrolls under while the field still runs through them. They carry no
+     backdrop-filter. On a nested scroller Chromium paints a blurred element as fully opaque,
+     which is what banded the episodes section. */
   --backdrop-sticky: color-mix(in srgb, var(--bg-surface) 30%, transparent);
   --backdrop-blur: blur(18px);
 }
@@ -78,8 +75,8 @@
   z-index: 1;
 }
 
-/* One semi-opaque layer carries the content area. Its children stay transparent, or stacked
-   alphas would compound the field away anyway. */
+/* One semi-opaque layer carries the content area. Its children stay transparent so stacked
+   alphas do not compound the field away. */
 .shell--shader .shell__content { background: var(--backdrop-pane); }
 .shell--shader .shell__bare-body,
 .shell--shader .browse,
@@ -88,7 +85,6 @@
 .shell--shader .mx-page,
 .shell--shader .guide__scroll { background: transparent; }
 
-/* Sticky headers blur what scrolls under them, on the same tone as the pane. */
 .shell--shader .browse__header,
 .shell--shader .live__header,
 .shell--shader .mx-head,

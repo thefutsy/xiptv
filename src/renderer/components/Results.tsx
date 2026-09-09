@@ -3,17 +3,11 @@ import type { MediaItem } from '@shared/types';
 import { useApp } from '@/state/store';
 import { Kicker, LogoPlate, Poster, Skeleton, TruncateTail } from '@/components/Primitives';
 import { Glyph, ICON, playItem } from '@/components/CommandPalette';
-import { seasonsLabel } from '@/components/MediaCard';
+import { metaParts } from '@/components/MediaCard';
 import { formatWhen } from '@/lib/format';
 
 export function kindWord(kind: MediaItem['kind']): string {
   return kind === 'live' ? 'Channel' : kind === 'movie' ? 'Movie' : 'Series';
-}
-
-function factsOf(item: MediaItem): Array<string | number | undefined> {
-  return item.kind === 'series'
-    ? [item.year, item.seasonCount ? seasonsLabel(item.seasonCount) : undefined]
-    : [item.year];
 }
 
 export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
@@ -39,7 +33,7 @@ export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
       </div>
       <div className="mx-card__cap" title={item.title || item.name}>
         <span className="mx-card__title" dir="auto">{item.title || item.name}</span>
-        <Kicker parts={factsOf(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-card__kicker" />
+        <Kicker parts={metaParts(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-card__kicker" />
       </div>
     </div>
   );
@@ -80,7 +74,7 @@ export function MediaRow({ item, showKind, right }: { item: MediaItem; showKind?
               {programme.title}
             </span>
           ) : item.kind !== 'live' && (item.year !== undefined || item.rating !== undefined) ? (
-            <Kicker parts={factsOf(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-row__kicker" />
+            <Kicker parts={metaParts(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-row__kicker" />
           ) : null}
         </span>
       </button>

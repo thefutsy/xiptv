@@ -1,10 +1,10 @@
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import type { Category, MediaItem } from '@shared/types';
 import { hueFromString, initialsFor, formatRating, classNames } from '@/lib/format';
 import { parseCategory } from '@/lib/catalog';
 import './primitives.css';
 
-/** The accent marker: vertical beside a selected row, horizontal as a progress fill. */
+/** The accent marker. Vertical beside a selected row, horizontal as a progress fill. */
 export function Tally({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   return <span className={`tally tally--${orientation}`} aria-hidden />;
 }
@@ -125,25 +125,24 @@ export function TruncateTail({ text, className }: { text: string; className?: st
 }
 
 /** "MULTISUB" reads as a word, "UK" as a code. */
-export function prefixWord(chip: string): string {
+function prefixWord(chip: string): string {
   return chip.length > 3 ? chip.charAt(0) + chip.slice(1).toLowerCase() : chip;
 }
 
 /** The provider's prefixes as one short string: "EN", "EU FR", "Multisub". */
-export function prefixText(chips: string[]): string {
+function prefixText(chips: string[]): string {
   return chips.map(prefixWord).join(' ');
 }
 
 /**
- * The prefix as a quiet tag in front of the label. It is always rendered, empty and all, so a
- * fixed-width gutter can hold every label on one x in a list.
+ * The prefix as a tag in front of the label. It renders even when empty, so every label in a
+ * list starts at the same x.
  */
 export function CategoryTag({ chips }: { chips: string[] }) {
   const text = prefixText(chips);
   return <span className="cattag" title={text || undefined}>{text}</span>;
 }
 
-/** The category's cleaned label behind its prefix tag. */
 export function CategoryLabel({ category }: { category: Category }) {
   const parsed = parseCategory(category);
   return (
@@ -174,7 +173,7 @@ export function Kicker({ parts, rating, className }: { parts: Array<string | num
   );
 }
 
-/** A quiet raised box that says what is missing, so nothing is ever an empty hole. */
+/** A raised box that names what is missing, in place of an empty gap. */
 export function Absence({ label, className, style }: { label?: string; className?: string; style?: CSSProperties }) {
   return (
     <div className={classNames('absence', className)} style={style}>
@@ -202,7 +201,7 @@ export function Skeleton({ width, height, radius, style }: { width?: number | st
 
 type ButtonVariant = 'primary' | 'ghost' | 'plain' | 'danger';
 
-/** primary: the accent. ghost: a filled quiet button. plain: text only. */
+/** primary: the accent. ghost: a filled quiet button. plain: text only. danger: destructive. */
 export function Button({
   variant = 'plain', children, className, ...rest
 }: { variant?: ButtonVariant } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -217,11 +216,10 @@ export function Tooltip({ label, children, placement = 'bottom' }: { label: stri
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
-  const show = useCallback(() => { timer.current = setTimeout(() => setOpen(true), 380); }, []);
   return (
     <span
       className="tip-anchor"
-      onPointerEnter={show}
+      onPointerEnter={() => { timer.current = setTimeout(() => setOpen(true), 380); }}
       onPointerLeave={() => { clearTimeout(timer.current); setOpen(false); }}
     >
       {children}

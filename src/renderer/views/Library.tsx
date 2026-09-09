@@ -19,7 +19,7 @@ const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
 ];
 
 const CONTINUE_ROW_H = 84;
-/* A favourite channel is one line beside a 34px plate; the 80px list row is for rows with a second line. */
+/* A favourite channel is one line beside a 34px plate. The 80px list row leaves room for two. */
 const CHANNEL_ROW_H = 64;
 
 export function Library() {

@@ -57,7 +57,8 @@ export function parseCategory(category: Category): ParsedCategory {
     if (!m) break;
     const token = m[1].toUpperCase();
     const marker = KIND_MARKERS.has(token);
-    // `NA| USA GENERAL`: a token the provider fenced with a pipe is a prefix whether or not it is on the list.
+    // A token the provider fenced with a pipe (`NA| USA GENERAL`) is a prefix even when
+    // it is not on the list.
     const fenced = rest.slice(m[1].length).trimStart().startsWith('|');
     if (!marker && !fenced && !PREFIX_CODES.has(token)) break;
     const remainder = rest.slice(m[0].length).replace(CATEGORY_DECOR, '').trim();

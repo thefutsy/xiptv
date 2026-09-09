@@ -67,9 +67,7 @@ function episodeCode(episode: Episode): string {
 function episodeTitle(episode: Episode): string {
   const raw = (episode.title || '').trim();
   const m = /^(?:.*?\s[-\u2013]\s)?S\d{1,2}\s?E\d{1,3}(?:\s[-\u2013:]\s*|\s+)(.+)$/i.exec(raw);
-  const kept = m?.[1]?.trim();
-  if (kept) return kept;
-  return raw || `Episode ${episode.episodeNum}`;
+  return m?.[1].trim() || raw || `Episode ${episode.episodeNum}`;
 }
 
 function episodeDuration(seconds: number): string {
@@ -331,7 +329,7 @@ function Spread({
 
   const titleSize = title.length > 56 ? 'detail__title--xs' : title.length > 34 ? 'detail__title--sm' : '';
   const quality = qualityTag(detail.name);
-  // Providers sometimes ship a sample length in this field; anything under a quarter hour is noise.
+  // Providers sometimes ship a sample length here, so anything under 15 minutes is dropped.
   const runtime = detail.kind === 'movie' && detail.durationSecs && detail.durationSecs >= 15 * 60
     ? coarseDuration(detail.durationSecs)
     : undefined;

@@ -22,7 +22,7 @@ export const KIND_MARKERS = new Set(['VOD', 'SRS', 'SERIES', 'SERIE', 'MOVIES', 
 
 /**
  * Streaming-service tags some providers put in front of a film or series name (`NF - Spiderhead`,
- * `AP - Severance`). Stripped only when they sit before a spaced dash, like a country prefix.
+ * `AP - Severance`). `cleanTitle` strips one only before a spaced dash, as it does a country code.
  */
 export const SERVICE_CODES = new Set([
   'NF', 'AP', 'ATV', 'APL', 'DP', 'DSN', 'HBO', 'HM', 'MAX', 'PR', 'PV', 'AMZ', 'PMT', 'PAR',

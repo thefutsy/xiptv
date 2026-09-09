@@ -127,7 +127,8 @@ export async function playProgress(p: WatchProgress): Promise<void> {
 
 const ASPECT_VERDICT = new Map<string, boolean>();
 
-function metaParts(item: MediaItem): Array<string | number | undefined> {
+/** The secondary line under a title: the year, plus the season count on a series. */
+export function metaParts(item: MediaItem): Array<string | number | undefined> {
   if (item.kind !== 'series') return [item.year];
   return [item.year, item.seasonCount ? seasonsLabel(item.seasonCount) : undefined];
 }
@@ -143,8 +144,8 @@ export const MediaCard = memo(function MediaCard({
     setWide(item.logo ? ASPECT_VERDICT.get(item.logo) ?? false : false);
   }, [item.logo]);
 
-  // `load` does not bubble, so the frame catches it in the capture phase. A landscape image
-  // sold as a poster is shown whole rather than cropped to a stripe.
+  // `load` does not bubble, so the frame catches it in the capture phase. A landscape image in
+  // a poster slot is then shown whole rather than cropped to a stripe.
   useEffect(() => {
     const el = frame.current;
     if (!el) return;

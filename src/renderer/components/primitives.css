@@ -2,7 +2,6 @@
 .tally--vertical { inset-inline-start: 0; top: 50%; translate: 0 -50%; width: 2px; height: 16px; }
 .tally--horizontal { inset-inline: 0; bottom: 0; height: 2px; }
 
-/* Logo plate: initials underneath, logo fading in on top. Never an empty box. */
 .plate {
   position: relative; flex: none; display: grid; place-items: center;
   background: var(--bg-plate); border-radius: var(--r-card);
@@ -20,10 +19,9 @@
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.35)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
 }
 .plate__img[data-loaded="true"] { opacity: 1; }
-/* Once the logo has pixels the plate reads as the logo's own tile. */
+/* The initials carry an inline background colour, so covering them takes !important. */
 .plate:has(.plate__img[data-loaded="true"]) .plate__initials { background: var(--bg-plate) !important; color: transparent; }
 
-/* Poster: the title on a raised tone underneath, artwork fading in over it. */
 .poster {
   position: relative; width: 100%; height: 100%; overflow: hidden;
   background: var(--bg-raised); border-radius: var(--r-card);
@@ -47,7 +45,6 @@
 .catlabel { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .catlabel > .truncate { flex: 0 1 auto; }
 
-/* A quiet tag: a soft raised fill, no outline. Not the baseline's bordered chip. */
 .cattag {
   flex: none;
   display: inline-flex;
@@ -65,7 +62,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Inline uses (page headers, landing tiles) let the tag hug and drop out when there is none. */
+/* Inline uses (page headers, landing tiles) drop the tag when there is none. The context
+   column overrides this to keep the cell and hold its column. */
 .cattag:empty { display: none; }
 
 .kicker-line {

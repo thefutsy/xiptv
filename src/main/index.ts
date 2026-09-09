@@ -688,7 +688,7 @@ async function createWindow(): Promise<void> {
   else await win.loadFile(join(__dirname_, '../../dist/index.html'));
 }
 
-// A screenshot or test run can point the whole profile elsewhere, so it never touches the real one.
+// A screenshot or test run points the profile at a throwaway directory, leaving the real one alone.
 if (process.env.XIPTV_USER_DATA) {
   app.setPath('userData', process.env.XIPTV_USER_DATA);
   app.setPath('sessionData', process.env.XIPTV_USER_DATA);

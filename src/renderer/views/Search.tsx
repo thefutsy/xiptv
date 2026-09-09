@@ -224,7 +224,7 @@ export function SearchPage() {
 
       <div className="search__meta">
         <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={setTab} />
-        {/* The tabs carry the counts; this line only speaks when filters have removed something. */}
+        {/* The tabs carry the counts, so this line appears only when a filter has cut the list. */}
         {(error !== undefined || !hasQuery || shown.length !== scoped.length) && (
           <p className="mx-head__count data">
             {error !== undefined

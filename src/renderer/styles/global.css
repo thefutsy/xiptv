@@ -71,7 +71,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .sm, .caption { font-size: var(--fs-sm); line-height: var(--lh-sm); letter-spacing: var(--ls-sm); }
 .micro { font-size: var(--fs-micro); line-height: var(--lh-micro); letter-spacing: var(--ls-micro); }
 
-/* Tabular figures for anything that lines up: times, counts, durations. Same face. */
+/* Tabular figures for anything that lines up: times, counts, durations. */
 .data { font-variant-numeric: tabular-nums; }
 
 /* A secondary line under a title: "2024 · 7.6", "60 channels". */

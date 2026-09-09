@@ -205,7 +205,7 @@ export function ContextColumn() {
     return needle ? listed.filter((_, i) => foldedNames[i].includes(needle)) : listed;
   }, [listed, foldedNames, query]);
 
-  // 358 categories deep, the one you are looking at should be on screen.
+  // The list runs to hundreds of rows, so the chosen category is scrolled into view.
   const chosenId = kind ? selected[kind] : undefined;
   const selectedIndex = useMemo(
     () => (chosenId ? visible.findIndex((c) => c.id === chosenId) : -1),

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { columnsFor } from '@/lib/virtual';
 
-/* 10px above, a 20px title line, 2px, an 18px facts line, 2px below. Matches .mcard__caption. */
+/* Matches .mcard__caption: 10 above + 20 title + 2 + 18 facts + 2 below. */
 export const CAPTION_H = 52;
 const SCROLLBAR = 10;
 

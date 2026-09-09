@@ -265,8 +265,8 @@ void main() {
 `
 
 const UNIFORMS = {
-  // A cool cast pulled off the accent (#5EB0FF), not the original teal: #0E1013, #18212D,
-  // #27405A, #3A5C7E. Hue carries the field at a fraction of the luminance a grey one needs.
+  // Derived from the accent (#5EB0FF) rather than the original teal: #0E1013, #18212D, #27405A,
+  // #3A5C7E. Colour reads at a far lower luminance than a grey field of the same visibility.
   colors: [[0.0549,0.0627,0.0745],[0.0941,0.1294,0.1765],[0.1529,0.2510,0.3529],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941]] as [number, number, number][],
   colorCount: 4,
   scale: 2.000,

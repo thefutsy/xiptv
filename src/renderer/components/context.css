@@ -59,9 +59,9 @@
 
 .context__label { flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 
-/* The tag hugs its own text on a two-character floor, so the column lines up on the country codes
-   that carry almost every row, and a rare long tag pushes only its own label right rather than
-   costing 358 category names their width. */
+/* The tag hugs its own text down to a two-character floor, so the column lines up on the country
+   codes that carry almost every row. A rare long tag pushes only its own label right, rather than
+   costing every other row its width. */
 .context .catlabel {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

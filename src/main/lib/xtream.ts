@@ -44,24 +44,25 @@ const GLYPH_PREFIX_RE = new RegExp(`^[\\p{L}\\p{N}][\\p{L}\\p{N}\\s./-]{0,11}?\\
 const PIPE_PREFIX_RE = /^[A-Z]{2,5}\s*\|\s*/;
 
 /**
- * `UK - BBC 1 UHD` -> `BBC 1 UHD`. Only a token on `PREFIX_CODES` is stripped, and the dash has to
- * be followed by a space, so `MI-5` and `NCIS - Los Angeles` survive intact.
+ * `UK - BBC 1 UHD` -> `BBC 1 UHD`. Only a token on `PREFIX_CODES` or `SERVICE_CODES` is stripped,
+ * and the dash has to be followed by a space, so `MI-5` and `NCIS - Los Angeles` survive intact.
  */
 const DASH_PREFIX_RE = /^([\p{L}\p{N}]{2,5})\s*[-\u2013\u2014]\s+/u;
 
 function stripDashPrefix(s: string): string {
   const m = DASH_PREFIX_RE.exec(s);
-  const code = m?.[1].toUpperCase();
-  if (!m || !code || !(PREFIX_CODES.has(code) || SERVICE_CODES.has(code))) return s;
+  if (!m) return s;
+  const code = m[1].toUpperCase();
+  if (!PREFIX_CODES.has(code) && !SERVICE_CODES.has(code)) return s;
   return s.slice(m[0].length);
 }
 
 const TRAILING_YEAR_RE = /\s*[-–—([]\s*(?:19|20)\d{2}\s*[)\]]?\s*$/;
 
 /**
- * Bracketed tags a provider hangs off the end of a title: a year, or a language note like
- * `(Multi-Audio)` and `(MULTI-SUBS)`. A country like `(US)` is left alone: it is the part of
- * `The Office (US)` that tells the two shows apart.
+ * A bracketed tag a provider hangs off the end of a title, either a year or a language note like
+ * `(Multi-Audio)` and `(MULTI-SUBS)`. A country such as `(US)` is left alone, since it is what
+ * tells `The Office (US)` from `The Office`.
  */
 const TAG_RE = /^(?:(?:19|20)\d{2}|multi[\s-]*(?:audio|subs?|lang(?:uage)?s?)|dual[\s-]*audio|(?:sub|dub)bed|multisub)$/i;
 
@@ -69,8 +70,9 @@ const TAIL_GROUP_RE = /\s*[([]\s*([^()[\]]{1,24}?)\s*[)\]]\s*$/;
 
 /**
  * Peels bracketed groups off the end. A tag is dropped, a country code is put back once the tags
- * behind it are gone, and anything else stops the walk: `Man on Fire (2026) (US)` ->
- * `Man on Fire (US)`.
+ * behind it are gone, and anything else stops the walk.
+ *
+ * `Man on Fire (2026) (US)` -> `Man on Fire (US)`
  */
 function stripTrailingTags(input: string): string {
   let s = input;
@@ -87,7 +89,7 @@ function stripTrailingTags(input: string): string {
   return kept.length && s.length ? `${s} ${kept.join(' ')}` : s;
 }
 
-/** `##### [UK] ENTERTAINMENT #####`: a divider the provider ships as a channel. Not a channel. */
+/** `##### [UK] ENTERTAINMENT #####` is a section divider the provider ships as a channel row. */
 const SEPARATOR_RE = /^\s*[#=*_]{3,}.*[#=*_]{3,}\s*$/;
 
 export function isSeparatorName(name: string): boolean {
@@ -161,7 +163,7 @@ export function parseYear(raw: string): number | undefined {
   const trailing = TRAILING_YEAR_CAPTURE_RE.exec(raw);
   if (trailing) return Number(trailing[1]);
 
-  // `Man on Fire (2026) (US)`: the year sits one tag in from the end.
+  // In `Man on Fire (2026) (US)` the year sits one tag in from the end.
   const bracketed = [...raw.matchAll(/[([]\s*((?:19|20)\d{2})\s*[)\]]/g)].pop();
   if (bracketed) return Number(bracketed[1]);
 

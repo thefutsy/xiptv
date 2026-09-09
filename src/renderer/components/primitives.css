@@ -44,9 +44,29 @@
 .trunc-tail > .truncate { flex: 0 1 auto; }
 .trunc-tail__tail { flex: none; color: var(--text-tertiary); font-size: var(--fs-sm); font-weight: var(--fw-body); }
 
-.catlabel { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.catlabel { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .catlabel > .truncate { flex: 0 1 auto; }
-.catlabel__prefix { flex: none; color: var(--text-tertiary); font-size: var(--fs-sm); font-weight: var(--fw-body); }
+
+/* A quiet tag: a soft raised fill, no outline. Not the baseline's bordered chip. */
+.cattag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding-inline: 6px;
+  border-radius: var(--r-chip);
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Inline uses (page headers, landing tiles) let the tag hug and drop out when there is none. */
+.cattag:empty { display: none; }
 
 .kicker-line {
   display: flex; align-items: center; gap: 6px; min-width: 0;

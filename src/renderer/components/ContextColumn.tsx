@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Check, ChevronDown, Delete, ListFilter } from 'lucide-react';
 import type { Category, MediaKind } from '@shared/types';
 import { useApp, type Route } from '@/state/store';
-import { Button, CategoryLabel, prefixWord, Skeleton, Tally } from '@/components/Primitives';
+import { Button, CategoryLabel, CategoryTag, prefixText, Skeleton, Tally } from '@/components/Primitives';
 import {
   EMPTY_FACETS, activeFacetCount, deriveDecades, deriveGenres, fold, isAdultCategory, parseCategory,
   toggleIn, type Facets,
@@ -39,12 +39,12 @@ function Label({ category, query }: { category: Category; query: string }) {
   if (at < 0) return <CategoryLabel category={category} />;
   return (
     <span className="catlabel">
+      <CategoryTag chips={parsed.chips} />
       <span className="truncate" dir="auto">
         {parsed.label.slice(0, at)}
         <mark className="context__hit">{parsed.label.slice(at, at + needle.length)}</mark>
         {parsed.label.slice(at + needle.length)}
       </span>
-      {parsed.chips.length > 0 && <span className="catlabel__prefix">{parsed.chips.map(prefixWord).join(' ')}</span>}
     </span>
   );
 }
@@ -200,6 +200,11 @@ export function ContextColumn() {
     [all, hideAdult],
   );
   const foldedNames = useMemo(() => listed.map((c) => fold(c.name)), [listed]);
+  // The gutter fits the longest prefix this list actually carries; a freak one truncates.
+  const tagCh = useMemo(
+    () => listed.reduce((n, c) => Math.max(n, prefixText(parseCategory(c).chips).length), 2),
+    [listed],
+  );
   const visible = useMemo(() => {
     const needle = fold(query.trim());
     return needle ? listed.filter((_, i) => foldedNames[i].includes(needle)) : listed;
@@ -215,7 +220,7 @@ export function ContextColumn() {
   };
 
   return (
-    <aside className="context" aria-label="Categories">
+    <aside className="context" aria-label="Categories" style={{ '--cat-tag-ch': tagCh } as CSSProperties}>
       <div className="context__head">
         <div className="context__field">
           <input

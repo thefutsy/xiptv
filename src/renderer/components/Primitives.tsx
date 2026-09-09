@@ -129,15 +129,27 @@ export function prefixWord(chip: string): string {
   return chip.length > 3 ? chip.charAt(0) + chip.slice(1).toLowerCase() : chip;
 }
 
-/** The category's cleaned label, with the provider's prefix demoted to a quiet word after it. */
+/** The provider's prefixes as one short string: "EN", "EU FR", "Multisub". */
+export function prefixText(chips: string[]): string {
+  return chips.map(prefixWord).join(' ');
+}
+
+/**
+ * The prefix as a quiet tag in front of the label. It is always rendered, empty and all, so a
+ * fixed-width gutter can hold every label on one x in a list.
+ */
+export function CategoryTag({ chips }: { chips: string[] }) {
+  const text = prefixText(chips);
+  return <span className="cattag" title={text || undefined}>{text}</span>;
+}
+
+/** The category's cleaned label behind its prefix tag. */
 export function CategoryLabel({ category }: { category: Category }) {
   const parsed = parseCategory(category);
   return (
     <span className="catlabel" data-raw={parsed.raw}>
+      <CategoryTag chips={parsed.chips} />
       <span className="truncate" dir="auto">{parsed.label}</span>
-      {parsed.chips.length > 0 && (
-        <span className="catlabel__prefix">{parsed.chips.map(prefixWord).join(' ')}</span>
-      )}
     </span>
   );
 }

@@ -50,6 +50,7 @@
   padding-inline: 12px 10px;
   border-radius: var(--r-control);
   color: var(--text-secondary);
+  text-align: start;
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .context__row:hover { background: var(--bg-surface); color: var(--text-primary); }
@@ -57,6 +58,23 @@
 .context__row .tally--vertical { inset-inline-start: 2px; }
 
 .context__label { flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* The tag column is as wide as the longest prefix in this list (capped), so every label in the
+   column starts on the same x and an untagged row keeps its place. `ch` is measured on the tag
+   itself, where the font is 12px, not on the 15px label around it. */
+.context .catlabel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.context .cattag {
+  width: min(calc(var(--cat-tag-ch, 3) * 1ch + 12px), 88px);
+  background: var(--bg-hover);
+}
+/* An untagged row keeps the cell so its label stays on the column's x. */
+.context .cattag:empty { display: block; background: none; }
+.context__row[data-selected="true"] .cattag { background: var(--bg-active); color: var(--text-primary); }
 .context__count { flex: none; color: var(--text-tertiary); font-size: var(--fs-sm); }
 
 .context__hit { background: none; color: var(--text-primary); font-weight: var(--fw-medium); }

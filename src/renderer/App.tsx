@@ -10,6 +10,7 @@ import { ContextColumn } from '@/components/ContextColumn';
 import { Toast } from '@/components/Toast';
 import { CastBar } from '@/components/CastBar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { ShaderBackdrop } from '@/components/ShaderBackdrop';
 import { EpgGuide } from '@/components/EpgGuide';
 import { Player } from '@/components/Player';
 import { Onboarding } from '@/views/Onboarding';
@@ -232,6 +233,7 @@ export function App() {
   const paletteOpen = useApp((s) => s.paletteOpen);
   const nowPlaying = useApp((s) => s.nowPlaying);
   const casting = useApp((s) => s.cast.connected);
+  const accelerated = useApp((s) => s.settings.hardwareAcceleration);
 
   useBootstrap();
   useMainEvents();
@@ -262,7 +264,14 @@ export function App() {
 
   if (!sources.length || firstRun) {
     return (
-      <div className={classNames('shell shell--bare', !sources.length && 'shell--onboard')}>
+      <div
+        className={classNames(
+          'shell shell--bare',
+          accelerated && 'shell--shader',
+          !sources.length && 'shell--onboard',
+        )}
+      >
+        <ShaderBackdrop />
         <TitleBar minimal />
         <div className="shell__bare-body">{sources.length ? <SyncLedger /> : <Onboarding />}</div>
         <Toast />
@@ -273,7 +282,12 @@ export function App() {
   const showContext = !contextHidden && CONTEXT_ROUTES.has(route.view);
 
   return (
-    <div className="shell" data-castbar={casting} data-playing={!!nowPlaying}>
+    <div
+      className={classNames('shell', accelerated && 'shell--shader')}
+      data-castbar={casting}
+      data-playing={!!nowPlaying}
+    >
+      <ShaderBackdrop />
       <TitleBar />
       <div className="shell__body">
         <NavRail />

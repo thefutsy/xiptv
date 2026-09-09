@@ -1,0 +1,99 @@
+/* The ambient field. Neutral, slow and very quiet: it breathes at the edges of the shell and is
+   scrimmed back out of the middle of the content, which is where the baseline's field cost
+   contrast. Every pane over it stays at least 84% opaque, so text keeps its ratios. */
+.backdrop {
+  --backdrop-strength: 0.5;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--bg-app);
+  pointer-events: none;
+}
+
+.backdrop__field {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  filter: grayscale(1) brightness(0.62);
+  animation: backdrop-in 1200ms var(--ease) 60ms forwards;
+  /* Stands in for the canvas under reduced motion, and while WebGL warms up. */
+  background: linear-gradient(150deg, #17171b, #26262d 55%, #191a1e);
+}
+
+.backdrop__field canvas { transform: rotate(180deg); }
+
+/* Darkest where the content column sits; the field is left to show at the top and the edges. */
+.backdrop__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(62% 62% at 64% 52%, rgba(15, 15, 17, 0.78), rgba(15, 15, 17, 0) 100%),
+    linear-gradient(to bottom,
+      rgba(15, 15, 17, 0.52) 0%, rgba(15, 15, 17, 0.14) 34%, rgba(15, 15, 17, 0.40) 100%);
+}
+
+@keyframes backdrop-in { to { opacity: var(--backdrop-strength); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop__field { animation: none; opacity: var(--backdrop-strength); }
+}
+
+.shell--shader {
+  position: relative;
+  --backdrop-chrome: color-mix(in srgb, var(--bg-app) 84%, transparent);
+  --backdrop-pane: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  --backdrop-blur: blur(18px);
+}
+
+:root[data-transparency="off"] .shell--shader {
+  --backdrop-chrome: var(--bg-app);
+  --backdrop-pane: var(--bg-surface);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .shell--shader {
+    --backdrop-chrome: var(--bg-app);
+    --backdrop-pane: var(--bg-surface);
+  }
+}
+
+/* A negative z-index would paint below .shell's own background, so the field sits at 0 and the
+   body is lifted above it. */
+.shell--shader > .backdrop { z-index: 0; }
+.shell--shader > .shell__body,
+.shell--shader > .shell__bare-body {
+  position: relative;
+  z-index: 1;
+}
+
+/* One semi-opaque layer carries the content area. Its children stay transparent, or stacked
+   alphas would compound the field away anyway. */
+.shell--shader .shell__content { background: var(--backdrop-pane); }
+.shell--shader .shell__bare-body,
+.shell--shader .browse,
+.shell--shader .browse__scroll,
+.shell--shader .live,
+.shell--shader .mx-page,
+.shell--shader .guide__scroll { background: transparent; }
+
+/* Sticky headers blur what scrolls under them, on the same tone as the pane. */
+.shell--shader .browse__header,
+.shell--shader .live__header,
+.shell--shader .mx-head,
+.shell--shader .season-bar {
+  background: var(--backdrop-pane);
+  backdrop-filter: var(--backdrop-blur);
+}
+
+.shell--shader > .titlebar,
+.shell--shader .navrail,
+.shell--shader .context,
+.shell--shader .live__preview,
+.shell--shader .guide__corner,
+.shell--shader .guide__gutter,
+.shell--shader .guide__timehead {
+  background: var(--backdrop-chrome);
+  backdrop-filter: var(--backdrop-blur);
+}
+
+.shell--shader[data-playing="true"] > .backdrop { display: none; }

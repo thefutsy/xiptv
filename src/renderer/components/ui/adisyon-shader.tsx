@@ -265,32 +265,33 @@ void main() {
 `
 
 const UNIFORMS = {
-  // V3's greys, not the original teal: #121216, #24242C, #40404E, #5A5A6E.
-  colors: [[0.0706,0.0706,0.0863],[0.1412,0.1412,0.1725],[0.2510,0.2510,0.3059],[0.3529,0.3529,0.4314],[0.3529,0.3529,0.4314],[0.3529,0.3529,0.4314],[0.3529,0.3529,0.4314],[0.3529,0.3529,0.4314]] as [number, number, number][],
+  // A cool cast pulled off the accent (#5EB0FF), not the original teal: #0E1013, #18212D,
+  // #27405A, #3A5C7E. Hue carries the field at a fraction of the luminance a grey one needs.
+  colors: [[0.0549,0.0627,0.0745],[0.0941,0.1294,0.1765],[0.1529,0.2510,0.3529],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941]] as [number, number, number][],
   colorCount: 4,
   scale: 2.000,
-  intensity: 0.720,
+  intensity: 0.820,
   paramA: 0.470,
   warp: 0.042,
   detail: 1.536,
   contrast: 1.040,
   brightness: 0.000,
-  saturation: 0.000,
+  saturation: 1.000,
   hue: 0.0000,
-  vignette: 0.120,
+  vignette: 0.060,
   blur: 0.0020,
   grain: 0.000,
   seed: 4012.0,
   rotate: 5.6549,
   offsetX: 0.110,
   offsetY: -0.190,
-  drift: 0.116,
+  drift: 0.210,
   cursorEnabled: false,
   cursorEffect: 2.0,
   cursorStrength: 0.650,
   cursorRadius: 0.460,
   oklab: 0.0,
-  timeScale: -0.727,
+  timeScale: -1.150,
 }
 
 const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()

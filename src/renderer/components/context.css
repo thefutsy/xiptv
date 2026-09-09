@@ -48,7 +48,7 @@
   align-items: center;
   gap: 8px;
   padding-inline: 12px 10px;
-  border-radius: var(--r-row);
+  border-radius: var(--r-control);
   color: var(--text-secondary);
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }

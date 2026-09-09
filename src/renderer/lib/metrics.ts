@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { columnsFor } from '@/lib/virtual';
 
-/* 10px above, up to two 20px title lines, 2px, an 18px facts line, 2px below. Matches .mcard__caption. */
-export const CAPTION_H = 72;
+/* 10px above, a 20px title line, 2px, an 18px facts line, 2px below. Matches .mcard__caption. */
+export const CAPTION_H = 52;
 const SCROLLBAR = 10;
 
 export function px(style: CSSStyleDeclaration, name: string, fallback: number): number {

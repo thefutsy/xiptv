@@ -3,7 +3,7 @@
   z-index: calc(var(--z-chrome) + 1);
   flex: none;
   width: var(--w-rail);
-  padding: 8px 4px 12px;
+  padding: 8px 2px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -35,9 +35,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: var(--fs-micro);
-  line-height: var(--lh-micro);
-  letter-spacing: -0.006em;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  letter-spacing: -0.008em;
   font-weight: var(--fw-medium);
 }
 

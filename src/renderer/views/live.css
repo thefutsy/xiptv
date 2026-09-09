@@ -133,22 +133,34 @@
 /* Channel rows: plate, name over programme, time at the right. Actions arrive on hover. */
 .live__row {
   position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 16px;
   height: 100%;
   padding-inline: var(--pad-page) 16px;
   cursor: default;
-  transition: background-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  transition: opacity var(--dur) var(--ease);
 }
-.live__row:hover { background: var(--bg-raised); }
-.live__row[data-focused] {
+/* The state tile sits inside the content column, like a category row, not across the pane. */
+.live__row::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block: 2px;
+  inset-inline: calc(var(--pad-page) - 12px) 4px;
+  border-radius: var(--r-control);
+  background: transparent;
+  transition: background-color var(--dur) var(--ease);
+}
+.live__row:hover::before { background: var(--bg-raised); }
+.live__row[data-focused]::before {
   background: var(--bg-raised);
   outline: 2px solid var(--accent-ring);
   outline-offset: -2px;
   transition: none;
 }
-.live__row[data-playing] { background: var(--bg-raised); }
+.live__row[data-playing]::before { background: var(--bg-raised); }
 .live__row[data-playing] .live__title { color: var(--accent); }
 .live__row[data-failed] { opacity: 0.6; }
 

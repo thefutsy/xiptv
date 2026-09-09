@@ -264,7 +264,7 @@ function Rail({
           </button>
         )}
       </div>
-      <div className="rail__body" data-end={edges.end}>
+      <div className="rail__body" data-start={edges.start} data-end={edges.end}>
         <div className="rail__track" ref={track}>{children}</div>
         <button
           type="button"
@@ -272,14 +272,14 @@ function Rail({
           aria-label="Scroll back"
           tabIndex={-1}
           onClick={() => page(-1)}
-        ><Glyph.ChevronLeft size={16} /></button>
+        ><Glyph.ChevronLeft size={20} /></button>
         <button
           type="button"
           className={classNames('rail__arrow rail__arrow--end', edges.end && 'is-live')}
           aria-label="Scroll forward"
           tabIndex={-1}
           onClick={() => page(1)}
-        ><Glyph.ChevronRight size={16} /></button>
+        ><Glyph.ChevronRight size={20} /></button>
       </div>
     </section>
   );

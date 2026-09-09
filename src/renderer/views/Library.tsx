@@ -19,6 +19,8 @@ const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
 ];
 
 const CONTINUE_ROW_H = 84;
+/* A favourite channel is one line beside a 34px plate; the 80px list row is for rows with a second line. */
+const CHANNEL_ROW_H = 64;
 
 export function Library() {
   const view = useApp((s) => s.route.view);
@@ -140,7 +142,7 @@ function Favourites() {
   return (
     <div className="mx-page library" ref={pageRef}>
       {asList ? (
-        <VList className="mx-scroll" header={header} count={shown.length} rowHeight={metrics.listRowH}>
+        <VList className="mx-scroll" header={header} count={shown.length} rowHeight={tab === 'live' ? CHANNEL_ROW_H : metrics.listRowH}>
           {(i) => (
             <MediaRow
               item={shown[i]}

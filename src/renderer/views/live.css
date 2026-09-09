@@ -771,8 +771,11 @@
   white-space: nowrap;
 }
 
-.guide__block[data-state='past'] { opacity: 0.55; }
-.guide__block[data-state='past']:hover { opacity: 0.85; }
+/* A past block recedes by losing its fill, not by dimming its contents: opacity on the block
+   multiplied the time line's tertiary colour down to 2.4:1 against its own background. */
+.guide__block[data-state='past'] { background: color-mix(in srgb, var(--bg-raised) 58%, transparent); }
+.guide__block[data-state='past'] .guide__block-title { color: var(--text-secondary); }
+.guide__block[data-state='past']:hover { background: var(--bg-raised); }
 
 .guide__block[data-state='live'] { background: var(--bg-hover); }
 .guide__block[data-state='live']::after {

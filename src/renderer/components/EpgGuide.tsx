@@ -610,6 +610,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                     ppm={ppm}
                     now={now}
                     focusMin={ring && index === focus.row ? focus.min : undefined}
+                    scrollLeft={view.left}
                     absenceLeft={gutter + Math.max(0, timelineLeft - H_OVERSCAN)}
                     absenceWidth={view.width + H_OVERSCAN * 2}
                     voidLabelLeft={view.left + gutter + 12}
@@ -703,6 +704,8 @@ interface GuideRowProps {
   ppm: number;
   now: number;
   focusMin?: number;
+  /** Timeline scroll offset in px, to measure how much of a clipped block still shows. */
+  scrollLeft: number;
   absenceLeft: number;
   absenceWidth: number;
   /** Where the visible left edge of the timeline is, so a "No guide data" lane says so once. */
@@ -783,6 +786,10 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
           ? { ...vars, '--elapsed': `${progressThrough(prog.start, prog.stop, p.now) * 100}%` } as CSSProperties
           : vars;
 
+        /* A block scrolled almost off the left keeps only a sliver on screen. A glyph or two of its
+           title there reads as debris rather than as a label, so it renders plain. */
+        const sliver = (slot.startMin + slot.durMin) * p.ppm - p.scrollLeft < 40;
+
         return (
           <div
             key={slot.key}
@@ -802,16 +809,18 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
               else p.onTune(item);
             }}
           >
-            <span className="guide__block-text">
-              <span className="guide__block-title" dir="auto">
-                {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
-              </span>
-              {tier === 'full' && (
-                <span className="guide__block-time data">
-                  {formatClock(prog.start)} – {formatClock(prog.stop)}
+            {!sliver && (
+              <span className="guide__block-text">
+                <span className="guide__block-title" dir="auto">
+                  {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
                 </span>
-              )}
-            </span>
+                {tier === 'full' && (
+                  <span className="guide__block-time data">
+                    {formatClock(prog.start)} – {formatClock(prog.stop)}
+                  </span>
+                )}
+              </span>
+            )}
             {past && item.hasArchive === true && tier !== 'word' && (
               <span className="guide__archive" aria-hidden><RotateCcw size={12} strokeWidth={1.5} /></span>
             )}

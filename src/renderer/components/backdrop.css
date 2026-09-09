@@ -45,17 +45,24 @@
      content, where the palette's faintest text (--text-tertiary) still clears 4.6:1. */
   --backdrop-chrome: color-mix(in srgb, var(--bg-app) 70%, transparent);
   --backdrop-pane: color-mix(in srgb, var(--bg-surface) 82%, transparent);
+  /* Sticky headers paint on top of the content pane, so their alpha compounds with it: 30% over
+     82% totals ~87%, enough to hold back what scrolls under while the field still runs through
+     them. They carry no backdrop-filter: on a nested scroller Chromium paints a blurred element
+     as fully opaque, which is what banded the episodes section. */
+  --backdrop-sticky: color-mix(in srgb, var(--bg-surface) 30%, transparent);
   --backdrop-blur: blur(18px);
 }
 
 :root[data-transparency="off"] .shell--shader {
   --backdrop-chrome: var(--bg-app);
   --backdrop-pane: var(--bg-surface);
+  --backdrop-sticky: var(--bg-surface);
 }
 @media (prefers-reduced-transparency: reduce) {
   .shell--shader {
     --backdrop-chrome: var(--bg-app);
     --backdrop-pane: var(--bg-surface);
+    --backdrop-sticky: var(--bg-surface);
   }
 }
 
@@ -83,8 +90,7 @@
 .shell--shader .live__header,
 .shell--shader .mx-head,
 .shell--shader .season-bar {
-  background: var(--backdrop-pane);
-  backdrop-filter: var(--backdrop-blur);
+  background: var(--backdrop-sticky);
 }
 
 .shell--shader > .titlebar,

@@ -189,8 +189,8 @@ export const MediaCard = memo(function MediaCard({
           <Glyph.Star size={12} filled={favourite} />
         </button>
       </div>
-      <div className="mcard__caption">
-        <span className="mcard__title" dir="auto" title={item.title || item.name}>{item.title || item.name}</span>
+      <div className="mcard__caption" title={item.title || item.name}>
+        <span className="mcard__title" dir="auto">{item.title || item.name}</span>
         <Kicker
           className="mcard__meta"
           parts={metaParts(item)}
@@ -246,8 +246,8 @@ export function ContinueCard({ progress }: { progress: WatchProgress }) {
         <span className="ccard__play" aria-hidden><Glyph.Play size={18} /></span>
         <span className="ccard__track"><span className="ccard__progress" style={{ width: `${pct * 100}%` }} /></span>
       </div>
-      <div className="mcard__caption">
-        <span className="mcard__title" dir="auto" title={progress.title}>{progress.title}</span>
+      <div className="mcard__caption" title={progress.title}>
+        <span className="mcard__title" dir="auto">{progress.title}</span>
         <Kicker className="mcard__meta" parts={[left > 30 ? `${coarseDuration(left)} left` : 'Finished']} />
       </div>
     </div>

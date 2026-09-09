@@ -797,14 +797,16 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
               else p.onTune(item);
             }}
           >
-            <span className="guide__block-title" dir="auto">
-              {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
-            </span>
-            {tier === 'full' && (
-              <span className="guide__block-time data">
-                {formatClock(prog.start)} – {formatClock(prog.stop)}
+            <span className="guide__block-text">
+              <span className="guide__block-title" dir="auto">
+                {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
               </span>
-            )}
+              {tier === 'full' && (
+                <span className="guide__block-time data">
+                  {formatClock(prog.start)} – {formatClock(prog.stop)}
+                </span>
+              )}
+            </span>
             {past && item.hasArchive === true && tier !== 'word' && (
               <span className="guide__archive" aria-hidden><RotateCcw size={12} strokeWidth={1.5} /></span>
             )}

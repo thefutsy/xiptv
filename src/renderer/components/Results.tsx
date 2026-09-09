@@ -37,8 +37,8 @@ export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
           <Glyph icon={ICON.play} />
         </button>
       </div>
-      <div className="mx-card__cap">
-        <span className="mx-card__title" dir="auto" title={item.title || item.name}>{item.title || item.name}</span>
+      <div className="mx-card__cap" title={item.title || item.name}>
+        <span className="mx-card__title" dir="auto">{item.title || item.name}</span>
         <Kicker parts={factsOf(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-card__kicker" />
       </div>
     </div>

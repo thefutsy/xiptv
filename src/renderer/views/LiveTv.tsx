@@ -11,7 +11,7 @@ import { VList } from '@/lib/virtual';
 import { useTokenPx } from '@/lib/metrics';
 import { groupVariants, parseCategory, qualityTag, withoutQuality, type VariantGroup } from '@/lib/catalog';
 import {
-  Absence, Button, CategoryLabel, EmptyState, LogoPlate, Skeleton, TruncateTail,
+  Absence, Button, CategoryLabel, EmptyState, LogoPlate, Skeleton, Tally, TruncateTail,
 } from '@/components/Primitives';
 import {
   classNames, debounce, formatClock, formatDayLabel, isTextEntry, progressThrough,
@@ -440,6 +440,7 @@ export function LiveTv() {
                     programmes={id ? epg[id] : undefined}
                     now={now}
                     playing={row.item.id === playingId}
+                    selected={index === focus}
                     focused={index === focus && focusRing}
                     failed={Boolean(failures[row.item.id])}
                     favourite={favouriteIds.has(row.item.id)}
@@ -592,6 +593,9 @@ interface RowProps {
   programmes?: EpgProgramme[];
   now: number;
   playing: boolean;
+  /** The row the preview panel describes. */
+  selected: boolean;
+  /** Keyboard focus ring on top of the selection. */
   focused: boolean;
   failed: boolean;
   favourite: boolean;
@@ -622,6 +626,7 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
     <div
       className="live__row"
       data-playing={p.playing || undefined}
+      data-selected={p.selected || undefined}
       data-focused={p.focused || undefined}
       data-failed={p.failed || undefined}
       role="button"
@@ -632,6 +637,7 @@ const ChannelRow = memo(function ChannelRow(p: RowProps) {
         else p.onPlay(item);
       }}
     >
+      {p.selected && <Tally />}
       <LogoPlate item={item} size="row" className="live__plate" />
 
       <div className="live__name">

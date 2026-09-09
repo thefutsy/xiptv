@@ -154,6 +154,8 @@
   transition: background-color var(--dur) var(--ease);
 }
 .live__row:hover::before { background: var(--bg-raised); }
+.live__row[data-selected]::before { background: var(--bg-raised); }
+.live__row > .tally--vertical { inset-inline-start: calc(var(--pad-page) - 10px); }
 .live__row[data-focused]::before {
   background: var(--bg-raised);
   outline: 2px solid var(--accent-ring);
@@ -723,10 +725,23 @@
   padding: 6px 10px;
   background: var(--bg-raised);
   border-radius: var(--r-card);
-  overflow: hidden;
+  /* clip, not hidden: a scroll container here would stop the label sticking to the timeline's edge. */
+  overflow: clip;
   transition: background-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
 .guide__block:hover { background: var(--bg-hover); }
+
+/* A block that started before the visible window keeps its words at the window's edge. */
+.guide__block-text {
+  position: sticky;
+  inset-inline-start: calc(var(--w-gutter) + 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
 .guide__block[data-focused] {
   background: var(--bg-active);
   outline: 2px solid var(--accent-ring);
@@ -766,8 +781,6 @@
   width: var(--elapsed, 0%);
   background: var(--accent);
 }
-.guide__block > .guide__block-title,
-.guide__block > .guide__block-time { position: relative; }
 
 .guide__archive {
   position: absolute;

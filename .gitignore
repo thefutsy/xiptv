@@ -1,4 +1,5 @@
-node_modules/
+# No trailing slash, so a symlinked node_modules (as a worktree has) is ignored too.
+node_modules
 dist/
 dist-electron/
 release/

@@ -82,6 +82,11 @@ you only get one concurrent connection. As a result, this needs to be handled cl
 - **MKV plays through a local remux.** Chromium has no Matroska demuxer, but the streams inside are
   usually H.264 and AAC already, so a local server stream-copies them into fragmented MP4. No
   transcoding, about 0.06s of CPU per 30s of video.
+- **MP4 films download ahead.** Chromium's player hangs up on a slow response and asks again every
+  few seconds, and a fresh provider connection takes about two seconds to start sending. So a film
+  is read over one connection into a temp file, as fast as the provider allows and up to 256 MB
+  ahead, and the player is served from that. Seeking back is instant, and only a jump past what has
+  downloaded opens a new connection.
 - **Chromecast gets its own URL.** Cast devices cannot demux Matroska either, so live channels and
   MKV films are served to them as HLS from that same local server.
 - **Live connections often drop every 30 to 60 seconds** and the provider replays its buffer from the

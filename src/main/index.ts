@@ -597,6 +597,8 @@ function registerIpc(): void {
 
   handle('player:resolve', (req: PlayRequest) => resolveStream(req));
   handle('player:openExternal', async (url: string) => {
+    // The external player opens its own connection, and a film may still be reading ahead on ours.
+    streamServer.stopStream();
     const external = store.getSettings().externalPlayer;
     if (!external) { await shell.openExternal(url); return; }
     const { spawn } = await import('node:child_process');
@@ -612,8 +614,12 @@ function registerIpc(): void {
   handle('cast:scan', () => cast.scan());
   handle('cast:connect', (id: string) => cast.connect(id));
   handle('cast:disconnect', () => cast.disconnect());
-  handle('cast:load', (stream: ResolvedStream, startAt?: number) =>
-    cast.load({ ...stream, url: stream.castUrl, mimeType: stream.castMimeType }, startAt));
+  handle('cast:load', (stream: ResolvedStream, startAt?: number) => {
+    // A film cast as-is is fetched by the television straight from the provider, so the local
+    // read-ahead has to give up the one connection first. /hls takes it over by itself.
+    if (stream.engine === 'native') streamServer.stopStream();
+    return cast.load({ ...stream, url: stream.castUrl, mimeType: stream.castMimeType }, startAt);
+  });
   handle('cast:play', () => cast.play());
   handle('cast:pause', () => cast.pause());
   handle('cast:seek', (s: number) => cast.seek(s));

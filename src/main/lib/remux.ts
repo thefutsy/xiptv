@@ -8,6 +8,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   createServer,
@@ -30,6 +31,7 @@ import { transcodeLadder, type TranscodeProfile } from './encoders.js';
 
 import { LiveTsSource, UpstreamError, describeUpstreamStatus } from './live-source.js';
 import { redactText } from './redact.js';
+import { VodSource } from './vod-source.js';
 
 
 /** The provider serves happily to VLC; some edges 403 unknown agents. */
@@ -383,6 +385,13 @@ function isLivePassthrough(entry: StreamEntry): boolean {
   return entry.kind === 'live' && isMpegTsContainer(entry.container) && /^https?:/i.test(entry.directUrl);
 }
 
+/** A film or episode Chromium plays as-is, which is read ahead through VodSource. */
+function isVodFile(entry: StreamEntry): boolean {
+  return entry.kind !== 'live'
+    && NATIVE_CONTAINERS.has(normaliseContainer(entry.container))
+    && /^https?:/i.test(entry.directUrl);
+}
+
 interface ActiveBase {
   token: string;
   generation: number;
@@ -412,6 +421,7 @@ export class StreamServer {
   #generation = 0;
   #activeProxy: ClientRequest | null = null;
   #activeSource: LiveTsSource | null = null;
+  #vod: { token: string; source: VodSource; dir: string } | null = null;
   #gate: Promise<unknown> = Promise.resolve();
   #cachedLan: string | null = null;
   #lastError: string | undefined;
@@ -599,6 +609,14 @@ export class StreamServer {
     const source = this.#activeSource;
     this.#activeSource = null;
     source?.destroy();
+    const vod = this.#vod;
+    this.#vod = null;
+    if (vod) {
+      void vod.source.destroy().then(() => {
+        liveTempDirs.delete(vod.dir);
+        rmSync(vod.dir, { recursive: true, force: true });
+      });
+    }
   }
 
 
@@ -1122,6 +1140,10 @@ export class StreamServer {
 
 
   async #serveDirect(entry: StreamEntry, req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.method === 'GET' && isVodFile(entry)) {
+      await this.#serveVod(entry, req, res);
+      return;
+    }
     this.#abortProxy();
     await this.#serialize(() => this.#killActive());
     if (res.destroyed) return;
@@ -1227,6 +1249,63 @@ export class StreamServer {
     };
 
     forward(entry.directUrl, MAX_REDIRECTS);
+  }
+
+  /** Every range request for the same film shares one provider connection; see vod-source.ts. */
+  async #serveVod(entry: StreamEntry, req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const source = await this.#serialize(async () => {
+      // A failed source is replaced, so the player's Retry really does try again.
+      if (this.#vod?.token === entry.token && !this.#vod.source.failure) return this.#vod.source;
+      await this.#killActive();
+      if (res.destroyed) return null;
+      const dir = mkdtempSync(join(tmpdir(), 'xiptv-vod-'));
+      liveTempDirs.add(dir);
+      const created = new VodSource(entry.directUrl, join(dir, 'film'), {
+        userAgent: USER_AGENT,
+        maxRedirects: MAX_REDIRECTS,
+      });
+      this.#vod = { token: entry.token, source: created, dir };
+      return created;
+    });
+    if (!source) return;
+
+    const cancel = new AbortController();
+    res.on('close', () => cancel.abort());
+    const read = source.reader(cancel.signal);
+    const range = parseByteRange(req.headers.range);
+    const start = range?.start ?? 0;
+
+    try {
+      let chunk = await read(start);
+      const size = source.size!;
+      if (start >= size) {
+        res.writeHead(416, { 'Content-Range': `bytes */${size}` }).end();
+        return;
+      }
+      const end = Math.min(range?.end ?? size - 1, size - 1);
+      const headers: Record<string, string> = {
+        'Content-Type': mimeForContainer(entry.container),
+        'Content-Length': String(end - start + 1),
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-store',
+      };
+      if (range) headers['Content-Range'] = `bytes ${start}-${end}/${size}`;
+      res.writeHead(range ? 206 : 200, headers);
+
+      let pos = start;
+      while (chunk.length) {
+        const part = chunk.subarray(0, end + 1 - pos);
+        pos += part.length;
+        if (!res.write(part)) await once(res, 'drain', { signal: cancel.signal });
+        if (pos > end) break;
+        chunk = await read(pos);
+      }
+      res.end();
+    } catch (err) {
+      if (cancel.signal.aborted) return;
+      if (err instanceof UpstreamError) this.#lastError = err.message;
+      respondError(res, 502, err instanceof Error ? err.message : 'upstream error');
+    }
   }
 
   #serveLiveDirect(entry: StreamEntry, res: ServerResponse): void {
@@ -1409,6 +1488,13 @@ function parseSeek(raw: string | null): number {
   const value = Number.parseFloat(raw);
   if (!Number.isFinite(value) || value <= 0) return 0;
   return value;
+}
+
+/** Just `bytes=a-` and `bytes=a-b`, which is all Chromium sends. Anything else is served whole. */
+function parseByteRange(header: string | undefined): { start: number; end?: number } | undefined {
+  const m = header ? /^bytes=(\d+)-(\d*)$/.exec(header.trim()) : null;
+  if (!m) return undefined;
+  return { start: Number(m[1]), end: m[2] ? Number(m[2]) : undefined };
 }
 
 function totalSizeFrom(contentRange: string | undefined): string | undefined {

@@ -12,10 +12,13 @@
  * live channel uses, so it cannot feed the transcoder at all. Both problems are properties of that
  * particular build, and both go away with a full-featured one.
  *
- * Pinned to an immutable BtbN autobuild tag, not the mutable `latest`:
+ * Pinned to a BtbN autobuild tag, not the mutable `latest`:
  * MEASURED, the `latest` master build's NVENC requires driver 610.00+ and refuses to open on a
  * driver that the n8.1 release build drives happily. Tracking master would silently demote a large
  * share of NVIDIA users to software.
+ *
+ * The tag must be the last build of a month. BtbN deletes daily builds after about two weeks and
+ * keeps only the month-end ones, so any other pin starts returning 404 within days.
  *
  * Usage:
  *   node scripts/fetch-ffmpeg.mjs            # host platform only
@@ -33,7 +36,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TAG = 'autobuild-2026-08-28-17-08';
+const TAG = 'autobuild-2026-08-31-13-27';
 const VER = 'ffmpeg-n8.1.2-50-g1a748fe2cd';
 const BASE = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${TAG}`;
 
@@ -48,17 +51,17 @@ const BASE = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${TAG}`;
 const MANIFEST = {
   'linux-x64': {
     url: `${BASE}/${VER}-linux64-gpl-8.1.tar.xz`,
-    sha256: 'af69c6a006cf3768826586362fec3426a25544c69fb3d50a95bda08020d5425c',
+    sha256: 'c733b4b2951e5957e15505f788b2c65a7a41b6da4b289e295852cc38079b4d2b',
     kind: 'tar.xz',
   },
   'linux-arm64': {
     url: `${BASE}/${VER}-linuxarm64-gpl-8.1.tar.xz`,
-    sha256: 'a5a40579cfa99b4c025c033cf28332299dd22f6ced9cd8ed4b109fa24a01f977',
+    sha256: 'ae5da4f51b9052390f414005f8ab26c1eed1268f327cce7cb79aa076b29bd66e',
     kind: 'tar.xz',
   },
   'win32-x64': {
     url: `${BASE}/${VER}-win64-gpl-8.1.zip`,
-    sha256: 'a10afcfce01b34872c49f3d8b0d7755351375a57fcfba27932666692302397a6',
+    sha256: '273abb45f3f9f76c303e35ff39f5bb6c23c163ae65f6244a32b7d4a7f6cf0616',
     kind: 'zip',
   },
 };

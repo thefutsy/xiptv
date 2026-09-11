@@ -66,7 +66,11 @@ interface Upstream {
   res: IncomingMessage;
 }
 
-function openUpstream(target: string, opts: LiveSourceOptions): Promise<Upstream> {
+export function openUpstream(
+  target: string,
+  opts: LiveSourceOptions,
+  extra: { range?: string; signal?: AbortSignal } = {},
+): Promise<Upstream> {
   return new Promise((resolve, reject) => {
     const attempt = (raw: string, redirectsLeft: number): void => {
       let url: URL;
@@ -78,7 +82,8 @@ function openUpstream(target: string, opts: LiveSourceOptions): Promise<Upstream
       }
       const options: RequestOptions = {
         method: 'GET',
-        headers: { 'user-agent': opts.userAgent, accept: '*/*' },
+        headers: { 'user-agent': opts.userAgent, accept: '*/*', ...(extra.range ? { range: extra.range } : {}) },
+        signal: extra.signal,
       };
       const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
       const req = send(url, options, (res) => {

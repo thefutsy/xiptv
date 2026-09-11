@@ -1,5 +1,7 @@
+/* The ambient field. It shows at the edges of the shell and is scrimmed back out of the middle,
+   where the content sits. The panes over it stay mostly opaque, so text keeps its contrast. */
 .backdrop {
-  --backdrop-strength: 0.60;
+  --backdrop-strength: 1;
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -12,54 +14,60 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  filter: saturate(1.15) brightness(0.72);
-  animation: backdrop-in 1400ms var(--ease-out) 80ms forwards;
-  background: linear-gradient(150deg,
-    rgba(3, 28, 38, 0.55), rgba(27, 108, 168, 0.42) 48%, rgba(90, 210, 244, 0.52));
+  /* saturate() leaves luma alone, so it raises the field without moving a contrast ratio. */
+  filter: saturate(1.7);
+  animation: backdrop-in 1200ms var(--ease) 60ms forwards;
+  /* Stands in for the canvas under reduced motion, and while WebGL warms up. */
+  background: linear-gradient(150deg, #18212d, #27405a 55%, #1b2532);
 }
 
 .backdrop__field canvas { transform: rotate(180deg); }
 
-/* --bg-app is pure black, so the field has nothing underneath it to lift the result: whatever
-   the scrim takes away is gone. It only has to keep the channel list legible where it runs over
-   the open middle, and the panes above it do most of that work already. */
+/* Darkest where the content column sits; the field is left to show at the top and the edges. */
 .backdrop__scrim {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(46% 54% at 44% 50%, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0) 100%),
-    radial-gradient(58% 48% at 8% 104%, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0) 72%),
+    radial-gradient(56% 56% at 62% 50%, rgba(15, 15, 17, 0.30), rgba(15, 15, 17, 0) 100%),
     linear-gradient(to bottom,
-      rgba(0, 0, 0, 0.48) 0%, rgba(0, 0, 0, 0.14) 22%, rgba(0, 0, 0, 0.04) 62%, rgba(0, 0, 0, 0.30) 100%);
+      rgba(15, 15, 17, 0.20) 0%, rgba(15, 15, 17, 0) 34%, rgba(15, 15, 17, 0.12) 100%);
 }
 
 @keyframes backdrop-in { to { opacity: var(--backdrop-strength); } }
 
+@media (prefers-reduced-motion: reduce) {
+  .backdrop__field { animation: none; opacity: var(--backdrop-strength); }
+}
+
 .shell--shader {
   position: relative;
-  --backdrop-chrome: color-mix(in srgb, var(--bg-app) 54%, transparent);
-  --backdrop-pane: color-mix(in srgb, var(--bg-surface) 58%, transparent);
-  --backdrop-bar: color-mix(in srgb, var(--bg-raised) 74%, transparent);
-  --backdrop-blur: blur(14px);
+  /* The panes carry most of the field's visibility. Hue does the rest, which costs less contrast
+     than the same gain in brightness would. */
+  --backdrop-chrome: color-mix(in srgb, var(--bg-app) 64%, transparent);
+  --backdrop-pane: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+  /* Sticky headers paint on top of the content pane, so their alpha compounds with it, enough to
+     hold back what scrolls under while the field still runs through them. They carry no
+     backdrop-filter. On a nested scroller Chromium paints a blurred element as fully opaque,
+     which is what banded the episodes section. */
+  --backdrop-sticky: color-mix(in srgb, var(--bg-surface) 30%, transparent);
+  --backdrop-blur: blur(18px);
 }
 
 :root[data-transparency="off"] .shell--shader {
   --backdrop-chrome: var(--bg-app);
   --backdrop-pane: var(--bg-surface);
-  --backdrop-bar: var(--bg-raised);
+  --backdrop-sticky: var(--bg-surface);
 }
 @media (prefers-reduced-transparency: reduce) {
   .shell--shader {
     --backdrop-chrome: var(--bg-app);
     --backdrop-pane: var(--bg-surface);
-    --backdrop-bar: var(--bg-raised);
+    --backdrop-sticky: var(--bg-surface);
   }
 }
 
-/* A negative z-index paints below the parent's own background, and .shell is opaque, so the
-   field never showed anywhere in the app. Sitting it at 0 puts it above that background and
-   below everything else: only the body needs an explicit lift, and the titlebar's popovers
-   (cast picker, tooltips) already carry z-indexes of their own well above both. */
+/* A negative z-index would paint below .shell's own background, so the field sits at 0 and the
+   body is lifted above it. */
 .shell--shader > .backdrop { z-index: 0; }
 .shell--shader > .shell__body,
 .shell--shader > .shell__bare-body {
@@ -67,43 +75,31 @@
   z-index: 1;
 }
 
+/* One semi-opaque layer carries the content area. Its children stay transparent so stacked
+   alphas do not compound the field away. */
+.shell--shader .shell__content { background: var(--backdrop-pane); }
 .shell--shader .shell__bare-body,
-.shell--shader .shell__content,
-.shell--shader .mx-page,
-.shell--shader .live,
 .shell--shader .browse,
 .shell--shader .browse__scroll,
-.shell--shader .guide__scroll {
-  background: transparent;
-}
+.shell--shader .live,
+.shell--shader .mx-page,
+.shell--shader .guide__scroll { background: transparent; }
 
-/* The band fades its artwork into the page. Left on the opaque surface colour it draws a
-   hard line where the poster ends and the field starts. */
-.shell--shader .detail__band::after {
-  background: linear-gradient(to bottom, transparent 25%, var(--backdrop-pane));
+.shell--shader .browse__header,
+.shell--shader .live__header,
+.shell--shader .mx-head,
+.shell--shader .season-bar {
+  background: var(--backdrop-sticky);
 }
 
 .shell--shader > .titlebar,
 .shell--shader .navrail,
+.shell--shader .context,
 .shell--shader .live__preview,
 .shell--shader .guide__corner,
 .shell--shader .guide__gutter,
 .shell--shader .guide__timehead {
   background: var(--backdrop-chrome);
-  backdrop-filter: var(--backdrop-blur);
-}
-
-.shell--shader .context,
-.shell--shader .live__header,
-.shell--shader .browse__header,
-.shell--shader .mx-head,
-.shell--shader .season-bar {
-  background: var(--backdrop-pane);
-  backdrop-filter: var(--backdrop-blur);
-}
-
-.shell--shader .castbar {
-  background: var(--backdrop-bar);
   backdrop-filter: var(--backdrop-blur);
 }
 

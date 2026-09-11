@@ -7,8 +7,8 @@ import {
   Film, Play, Star, Tv,
 } from 'lucide-react';
 import type { MediaItem, WatchProgress } from '@shared/types';
-import { Absence, Kicker, Poster, Tally } from '@/components/Primitives';
-import { classNames, hueFromString, progressThrough } from '@/lib/format';
+import { Absence, Kicker, Poster } from '@/components/Primitives';
+import { classNames, progressThrough } from '@/lib/format';
 import { activeSource, useApp } from '@/state/store';
 import '@/views/browse.css';
 
@@ -51,11 +51,16 @@ function messageOf(err: unknown): string {
   return err instanceof Error && err.message ? err.message : String(err ?? '');
 }
 
+/** "1h 16m", "48m". */
 export function coarseDuration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds / 60));
   const h = Math.floor(total / 60);
   const m = total % 60;
-  return h > 0 ? `${h}H ${m}M` : `${m}M`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+export function seasonsLabel(n: number): string {
+  return `${n} ${n === 1 ? 'season' : 'seasons'}`;
 }
 
 export function useIsFavourite(id: string): boolean {
@@ -122,10 +127,10 @@ export async function playProgress(p: WatchProgress): Promise<void> {
 
 const ASPECT_VERDICT = new Map<string, boolean>();
 
-function kickerParts(item: MediaItem): Array<string | number | undefined> {
+/** The secondary line under a title: the year, plus the season count on a series. */
+export function metaParts(item: MediaItem): Array<string | number | undefined> {
   if (item.kind !== 'series') return [item.year];
-  const seasons = item.seasonCount;
-  return [item.year, seasons ? `${seasons} ${seasons === 1 ? 'SEASON' : 'SEASONS'}` : undefined];
+  return [item.year, item.seasonCount ? seasonsLabel(item.seasonCount) : undefined];
 }
 
 export const MediaCard = memo(function MediaCard({
@@ -133,15 +138,14 @@ export const MediaCard = memo(function MediaCard({
 }: { item: MediaItem; onOpen?: (item: MediaItem) => void }) {
   const favourite = useIsFavourite(item.id);
   const frame = useRef<HTMLDivElement>(null);
-  const [drift, setDrift] = useState(() => (item.logo ? ASPECT_VERDICT.get(item.logo) ?? false : false));
-  const [broken, setBroken] = useState(false);
+  const [wide, setWide] = useState(() => (item.logo ? ASPECT_VERDICT.get(item.logo) ?? false : false));
 
   useEffect(() => {
-    setBroken(false);
-    setDrift(item.logo ? ASPECT_VERDICT.get(item.logo) ?? false : false);
+    setWide(item.logo ? ASPECT_VERDICT.get(item.logo) ?? false : false);
   }, [item.logo]);
 
-  // `load` and `error` do not bubble, so the frame catches them in the capture phase.
+  // `load` does not bubble, so the frame catches it in the capture phase. A landscape image in
+  // a poster slot is then shown whole rather than cropped to a stripe.
   useEffect(() => {
     const el = frame.current;
     if (!el) return;
@@ -149,26 +153,18 @@ export const MediaCard = memo(function MediaCard({
     const onLoad = (e: Event) => {
       const img = e.target;
       if (!(img instanceof HTMLImageElement) || !img.naturalWidth || !img.naturalHeight) return;
-      const wide = img.naturalWidth / img.naturalHeight > 1;
-      if (url) ASPECT_VERDICT.set(url, wide);
-      setDrift(wide);
+      const landscape = img.naturalWidth / img.naturalHeight > 1;
+      if (url) ASPECT_VERDICT.set(url, landscape);
+      setWide(landscape);
     };
-    const onError = () => setBroken(true);
     el.addEventListener('load', onLoad, true);
-    el.addEventListener('error', onError, true);
-    return () => {
-      el.removeEventListener('load', onLoad, true);
-      el.removeEventListener('error', onError, true);
-    };
+    return () => el.removeEventListener('load', onLoad, true);
   }, [item.logo]);
 
   const open = useCallback(() => {
     if (onOpen) onOpen(item);
     else useApp.getState().navigate({ view: 'detail', item });
   }, [item, onOpen]);
-
-  const fallback = !item.logo || broken;
-  const hue = hueFromString(item.title || item.name);
 
   return (
     <div
@@ -183,15 +179,7 @@ export const MediaCard = memo(function MediaCard({
       }}
     >
       <div className="mcard__frame" ref={frame}>
-        {drift && !fallback && (
-          <div
-            className="mcard__bed"
-            style={{ background: `linear-gradient(135deg, hsl(${hue} 26% 21%), hsl(${hue} 26% 13%))` }}
-          />
-        )}
-        <Poster item={item} className={classNames('mcard__poster', drift && !fallback && 'mcard__poster--contain')} />
-        {fallback && item.year !== undefined && <span className="mcard__stamp data">{item.year}</span>}
-        <span className="mcard__play" aria-hidden><Glyph.Play size={16} /></span>
+        <Poster item={item} className={classNames('mcard__poster', wide && 'mcard__poster--contain')} />
         <button
           type="button"
           className={classNames('mcard__fav', favourite && 'is-on')}
@@ -199,14 +187,14 @@ export const MediaCard = memo(function MediaCard({
           aria-label={favourite ? 'Remove from favourites' : 'Add to favourites'}
           onClick={(e) => { e.stopPropagation(); void toggleFavourite(item); }}
         >
-          <Glyph.Star size={15} filled={favourite} />
+          <Glyph.Star size={12} filled={favourite} />
         </button>
       </div>
-      <div className="mcard__caption">
+      <div className="mcard__caption" title={item.title || item.name}>
         <span className="mcard__title" dir="auto">{item.title || item.name}</span>
         <Kicker
-          className="kicker mcard__kicker"
-          parts={kickerParts(item)}
+          className="mcard__meta"
+          parts={metaParts(item)}
           rating={item.kind === 'series' ? undefined : item.rating}
         />
       </div>
@@ -257,11 +245,11 @@ export function ContinueCard({ progress }: { progress: WatchProgress }) {
           <Absence className="ccard__still ccard__still--absent" />
         )}
         <span className="ccard__play" aria-hidden><Glyph.Play size={18} /></span>
-        <span className="ccard__progress" style={{ width: `${pct * 100}%` }}><Tally orientation="horizontal" /></span>
+        <span className="ccard__track"><span className="ccard__progress" style={{ width: `${pct * 100}%` }} /></span>
       </div>
-      <div className="ccard__caption">
-        <span className="mcard__title ccard__title" dir="auto">{progress.title}</span>
-        <Kicker className="kicker" parts={[left > 30 ? `${coarseDuration(left)} LEFT` : 'FINISHED']} />
+      <div className="mcard__caption" title={progress.title}>
+        <span className="mcard__title" dir="auto">{progress.title}</span>
+        <Kicker className="mcard__meta" parts={[left > 30 ? `${coarseDuration(left)} left` : 'Finished']} />
       </div>
     </div>
   );
@@ -272,7 +260,7 @@ export function ContinueCardSkeleton({ index = 0 }: { index?: number }) {
   return (
     <div className="ccard ccard--skeleton" aria-hidden>
       <div className="ccard__frame"><div className="skeleton ccard__still" style={delay} /></div>
-      <div className="ccard__caption">
+      <div className="mcard__caption">
         <div className="skeleton mcard__skel mcard__skel--one" style={delay} />
         <div className="skeleton mcard__skel mcard__skel--kicker" style={delay} />
       </div>
@@ -313,7 +301,7 @@ export function MenuButton({
     <div className="menu" ref={host}>
       <button
         type="button"
-        className={classNames('menu__trigger sm', open && 'is-open', className)}
+        className={classNames('menu__trigger', open && 'is-open', className)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
@@ -321,7 +309,7 @@ export function MenuButton({
       >
         {glyph}
         {label !== undefined && <span className="menu__label truncate">{label}</span>}
-        <Glyph.ChevronDown size={13} />
+        <Glyph.ChevronDown size={14} />
       </button>
       {open && (
         <div className={classNames('menu__panel', `menu__panel--${align}`, panelClassName)} role="menu" style={{ width }}>
@@ -339,10 +327,10 @@ export function MenuItem({
     <button
       type="button"
       role="menuitem"
-      className={classNames('menu__item sm', selected && 'is-selected')}
+      className={classNames('menu__item', selected && 'is-selected')}
       onClick={onSelect}
     >
-      <span className="menu__tick" aria-hidden>{selected ? <Glyph.Check size={13} /> : null}</span>
+      <span className="menu__tick" aria-hidden>{selected ? <Glyph.Check size={14} /> : null}</span>
       <span className="truncate">{children}</span>
       {trailing !== undefined && <span className="menu__trailing data">{trailing}</span>}
     </button>

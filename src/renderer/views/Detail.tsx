@@ -3,10 +3,10 @@ import {
   type ReactNode,
 } from 'react';
 import type { Episode, MediaItem, SeriesDetail, WatchProgress } from '@shared/types';
-import { Absence, Button, Kicker, Poster, Skeleton, Tally, Tooltip, TruncateTail } from '@/components/Primitives';
+import { Absence, Button, Kicker, Poster, Skeleton, Tooltip, TruncateTail } from '@/components/Primitives';
 import {
-  Glyph, humanGenre, MenuButton, MenuItem, openExternally, playItem, qualityTag,
-  toggleFavourite, useIsFavourite,
+  coarseDuration, Glyph, humanGenre, MenuButton, MenuItem, openExternally, playItem, qualityTag,
+  seasonsLabel, toggleFavourite, useIsFavourite,
 } from '@/components/MediaCard';
 import { VList } from '@/lib/virtual';
 import { EMPTY_FACETS, splitGenres } from '@/lib/catalog';
@@ -57,13 +57,23 @@ function formatAdded(value?: number): string | undefined {
 }
 
 function episodeCode(episode: Episode): string {
-  return `S${String(episode.season).padStart(2, '0')} · E${String(episode.episodeNum).padStart(2, '0')}`;
+  return `S${episode.season} E${episode.episodeNum}`;
+}
+
+/**
+ * Providers often file an episode as "Show (2026) (US) - S01E01 - One". The show and the code are
+ * already on the page, so the row keeps only the part that names the episode.
+ */
+function episodeTitle(episode: Episode): string {
+  const raw = (episode.title || '').trim();
+  const m = /^(?:.*?\s[-\u2013]\s)?S\d{1,2}\s?E\d{1,3}(?:\s[-\u2013:]\s*|\s+)(.+)$/i.exec(raw);
+  return m?.[1].trim() || raw || `Episode ${episode.episodeNum}`;
 }
 
 function episodeDuration(seconds: number): string {
   const minutes = Math.max(1, Math.round(seconds / 60));
-  if (minutes < 60) return `${minutes} MIN`;
-  return `${Math.floor(minutes / 60)}H ${minutes % 60}M`;
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 interface GenreChip {
@@ -82,10 +92,6 @@ function genresOf(item: MediaItem): GenreChip[] {
     }
   }
   return out.slice(0, 8);
-}
-
-function cssUrl(url: string): string {
-  return url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function watchedFraction(p?: WatchProgress): number {
@@ -323,6 +329,10 @@ function Spread({
 
   const titleSize = title.length > 56 ? 'detail__title--xs' : title.length > 34 ? 'detail__title--sm' : '';
   const quality = qualityTag(detail.name);
+  // Providers sometimes ship a sample length here, so anything under 15 minutes is dropped.
+  const runtime = detail.kind === 'movie' && detail.durationSecs && detail.durationSecs >= 15 * 60
+    ? coarseDuration(detail.durationSecs)
+    : undefined;
 
   const jumpToGenre = (genre: string) => {
     const state = useApp.getState();
@@ -334,100 +344,70 @@ function Spread({
   };
 
   return (
-    <>
-      <BackdropBand item={detail} />
-      <div className="detail__spread">
-        <div className="detail__aside">
-          <div className="detail__poster-frame">
-            <Poster item={detail} className="detail__poster" />
-          </div>
-
-          <Button variant="primary" className="detail__play" disabled={!canPlay} onClick={onPlay}>
-            <Glyph.Play size={16} />{playLabel}
-          </Button>
-          {resumeLine && <div className="detail__resume data">{resumeLine}</div>}
-
-          <div className="detail__actions">
-            <Button
-              variant="ghost"
-              className="detail__action"
-              aria-pressed={favourite}
-              onClick={() => void toggleFavourite(detail)}
-            >
-              <Glyph.Star size={16} filled={favourite} />{favourite ? 'In favourites' : 'Favourite'}
-            </Button>
-            <Button
-              variant="ghost"
-              className="detail__action"
-              onClick={() => useApp.getState().patch({ castPanelOpen: true })}
-            >
-              <Glyph.Cast size={16} />Cast
-            </Button>
-            <Button
-              variant="ghost"
-              className="detail__action"
-              onClick={() => void openExternally(detail)}
-            >
-              <Glyph.External size={16} />Open externally
-            </Button>
-          </div>
+    <div className="detail__spread">
+      <div className="detail__aside">
+        <div className="detail__poster-frame">
+          <Poster item={detail} className="detail__poster" />
         </div>
 
-        <div className="detail__main">
-          <h1 className={classNames('serif-1 detail__title', titleSize)} dir="auto">{title}</h1>
-          {detail.name && detail.name !== title && (
-            <p className="detail__original" dir="auto">{detail.name}</p>
-          )}
-          <Kicker
-            className="kicker detail__kicker"
-            parts={[detail.year, quality, detail.kind === 'series' && detail.seasonCount
-              ? `${detail.seasonCount} ${detail.seasonCount === 1 ? 'SEASON' : 'SEASONS'}`
-              : undefined]}
-            rating={detail.rating}
-          />
-          <Plot text={detail.plot} loading={loading} />
-          {genres.length > 0 && (
-            <div className="detail__genres">
-              {genres.map((g) => (
-                <button
-                  type="button"
-                  key={g.raw}
-                  className="detail__genre micro"
-                  onClick={() => jumpToGenre(g.raw)}
-                >{g.label}</button>
-              ))}
-            </div>
-          )}
-          <SpecSheet detail={detail} genres={genres} loading={loading} />
+        <Button variant="primary" className="detail__play" disabled={!canPlay} onClick={onPlay}>
+          <Glyph.Play size={16} />{playLabel}
+        </Button>
+        {resumeLine && <div className="detail__resume data">{resumeLine}</div>}
+
+        <div className="detail__actions">
+          <Button
+            variant="plain"
+            className="detail__action"
+            aria-pressed={favourite}
+            onClick={() => void toggleFavourite(detail)}
+          >
+            <Glyph.Star size={16} filled={favourite} />{favourite ? 'In favourites' : 'Favourite'}
+          </Button>
+          <Button
+            variant="plain"
+            className="detail__action"
+            onClick={() => useApp.getState().patch({ castPanelOpen: true })}
+          >
+            <Glyph.Cast size={16} />Cast
+          </Button>
+          <Button
+            variant="plain"
+            className="detail__action"
+            onClick={() => void openExternally(detail)}
+          >
+            <Glyph.External size={16} />Open externally
+          </Button>
         </div>
       </div>
-    </>
-  );
-}
 
-function BackdropBand({ item }: { item: MediaItem }) {
-  const url = item.backdrop;
-  const [ok, setOk] = useState<boolean | null>(url ? null : false);
-
-  useEffect(() => {
-    if (!url) { setOk(false); return; }
-    setOk(null);
-    let dead = false;
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => { if (!dead) setOk(img.naturalWidth >= 1280); };
-    img.onerror = () => { if (!dead) setOk(false); };
-    img.src = url;
-    return () => { dead = true; img.onload = null; img.onerror = null; };
-  }, [url]);
-
-  if (ok === true && url) {
-    return <div className="detail__band" style={{ backgroundImage: `url("${cssUrl(url)}")` }} aria-hidden />;
-  }
-  if (ok === null) return <div className="detail__band detail__band--probing" aria-hidden />;
-  return (
-    <div className="detail__band detail__band--press" aria-hidden>
-      <span className="detail__letterpress">{item.title || item.name}</span>
+      <div className="detail__main">
+        <h1 className={classNames('t-display detail__title', titleSize)} dir="auto">{title}</h1>
+        <Kicker
+          className="detail__meta"
+          parts={[
+            detail.year,
+            runtime,
+            detail.kind === 'series' && detail.seasonCount ? seasonsLabel(detail.seasonCount) : undefined,
+            quality,
+          ]}
+          rating={detail.rating}
+        />
+        <Plot text={detail.plot} loading={loading} />
+        {genres.length > 0 && (
+          <div className="detail__genres">
+            {genres.map((g) => (
+              <button
+                type="button"
+                key={g.raw}
+                className="detail__genre"
+                onClick={() => jumpToGenre(g.raw)}
+              >{g.label}</button>
+            ))}
+          </div>
+        )}
+        <SpecSheet detail={detail} loading={loading} />
+      </div>
     </div>
   );
 }
@@ -448,9 +428,9 @@ function Plot({ text, loading }: { text?: string; loading: boolean }) {
     if (loading) {
       return (
         <div className="detail__plot-skel">
-          <Skeleton height={12} radius={3} />
-          <Skeleton height={12} radius={3} style={{ width: '92%' }} />
-          <Skeleton height={12} radius={3} style={{ width: '64%' }} />
+          <Skeleton height={14} radius={3} />
+          <Skeleton height={14} radius={3} style={{ width: '92%' }} />
+          <Skeleton height={14} radius={3} style={{ width: '64%' }} />
         </div>
       );
     }
@@ -461,7 +441,7 @@ function Plot({ text, loading }: { text?: string; loading: boolean }) {
     <div className="detail__plot-block">
       <p ref={ref} className={classNames('detail__plot', expanded && 'is-open')} dir="auto">{text}</p>
       {(overflows || expanded) && (
-        <button type="button" className="detail__more sm" onClick={() => setExpanded((v) => !v)}>
+        <button type="button" className="detail__more" onClick={() => setExpanded((v) => !v)}>
           {expanded ? 'Less' : 'More'}
         </button>
       )}
@@ -469,7 +449,7 @@ function Plot({ text, loading }: { text?: string; loading: boolean }) {
   );
 }
 
-function SpecSheet({ detail, genres, loading }: { detail: MediaItem; genres: GenreChip[]; loading: boolean }) {
+function SpecSheet({ detail, loading }: { detail: MediaItem; loading: boolean }) {
   const rows: Array<{ label: string; value: string }> = [];
   const push = (label: string, value?: string) => {
     const v = value?.trim();
@@ -477,9 +457,8 @@ function SpecSheet({ detail, genres, loading }: { detail: MediaItem; genres: Gen
   };
   push('Director', detail.director);
   push('Cast', detail.cast);
-  push('Genre', genres.map((g) => g.label).join(', ') || detail.genre);
   push('Added', formatAdded(detail.addedAt));
-  push('Container', detail.containerExtension?.toUpperCase());
+  push('Format', detail.containerExtension?.toUpperCase());
 
   if (!rows.length) {
     if (!loading) return null;
@@ -488,7 +467,7 @@ function SpecSheet({ detail, genres, loading }: { detail: MediaItem; genres: Gen
         {Array.from({ length: 3 }, (_, i) => (
           <div className="spec__row" key={i}>
             <span className="spec__label">&nbsp;</span>
-            <span className="spec__value"><Skeleton height={12} radius={3} style={{ width: `${70 - i * 12}%` }} /></span>
+            <span className="spec__value"><Skeleton height={14} radius={3} style={{ width: `${70 - i * 12}%` }} /></span>
           </div>
         ))}
       </div>
@@ -520,6 +499,7 @@ function SeasonBar({
           label={active === null ? 'Seasons' : seasonLabel(active)}
           width={240}
           panelClassName="season-bar__panel"
+          align="start"
         >
           {(close) => (
             <div className="season-bar__list">
@@ -537,7 +517,7 @@ function SeasonBar({
           )}
         </MenuButton>
         <span className="season-bar__meta data">
-          {active !== null && countOf(active) > 0 ? `${countOf(active)} EPISODES` : ''}
+          {active !== null && countOf(active) > 0 ? `${countOf(active)} episodes` : ''}
         </span>
       </div>
     );
@@ -555,12 +535,11 @@ function SeasonBar({
             aria-selected={isActive}
             aria-disabled={count === 0}
             tabIndex={count === 0 ? -1 : 0}
-            className={classNames('season-tab sm', isActive && 'is-active', count === 0 && 'is-empty')}
+            className={classNames('season-tab', isActive && 'is-active', count === 0 && 'is-empty')}
             onClick={() => count > 0 && onPick(s)}
           >
             <span>{seasonLabel(s)}</span>
             {count > 0 && <span className="season-tab__count data">{count}</span>}
-            {isActive && <Tally orientation="horizontal" />}
           </button>
         );
         return count === 0
@@ -625,25 +604,18 @@ function EpisodeRow({
             onError={() => setBroken(true)}
           />
         ) : (
-          <>
-            <Absence className="episode__hatch" />
-            <span className="episode__ghost">{episode.episodeNum}</span>
-          </>
+          <span className="episode__ghost data">{episode.episodeNum}</span>
         )}
         <span className="episode__play" aria-hidden><Glyph.Play size={14} /></span>
-        {partial && (
-          <span className="episode__progress" style={{ width: `${fraction * 100}%` }}>
-            <Tally orientation="horizontal" />
-          </span>
-        )}
+        {partial && <span className="episode__progress" style={{ width: `${fraction * 100}%` }} />}
       </div>
 
       <div className="episode__text">
         <div className="episode__line">
-          <span className="episode__num data">E{String(episode.episodeNum).padStart(2, '0')}</span>
-          <TruncateTail text={episode.title || `Episode ${episode.episodeNum}`} className="episode__title h2" />
+          <span className="episode__num data">{episode.episodeNum}</span>
+          <TruncateTail text={episodeTitle(episode)} className="episode__title" />
         </div>
-        {episode.plot && <p className="episode__plot sm t-secondary" dir="auto">{episode.plot}</p>}
+        {episode.plot && <p className="episode__plot sm" dir="auto">{episode.plot}</p>}
       </div>
 
       <div className="episode__end">
@@ -656,7 +628,7 @@ function EpisodeRow({
           aria-pressed={finished}
           aria-label={finished ? 'Mark as unwatched' : 'Mark as watched'}
           onClick={(e) => { e.stopPropagation(); onToggleWatched(); }}
-        ><Glyph.Check size={15} /></button>
+        ><Glyph.Check size={16} /></button>
       </div>
     </div>
   );
@@ -668,9 +640,9 @@ function EpisodeSkeleton() {
       <div className="episode__still"><div className="skeleton episode__img" /></div>
       <div className="episode__text">
         <Skeleton width={220} height={14} radius={3} />
-        <Skeleton height={11} radius={3} style={{ marginTop: 8, width: '76%' }} />
+        <Skeleton height={12} radius={3} style={{ marginTop: 8, width: '76%' }} />
       </div>
-      <div className="episode__end"><Skeleton width={44} height={11} radius={3} /></div>
+      <div className="episode__end"><Skeleton width={44} height={12} radius={3} /></div>
     </div>
   );
 }
@@ -678,10 +650,9 @@ function EpisodeSkeleton() {
 function NoEpisodeList({ onRetry, onExternal }: { onRetry: () => void; onExternal: () => void }) {
   return (
     <div className="no-episodes">
-      <Absence className="no-episodes__bed" />
       <div className="no-episodes__body">
-        <h2 className="serif-2">No episode list from this provider</h2>
-        <p className="sm t-secondary">
+        <h2 className="t-title">No episode list from this provider</h2>
+        <p className="t-secondary">
           The series is in the catalogue but its season data came back empty. Some providers fill
           this in lazily, so a retry sometimes works.
         </p>

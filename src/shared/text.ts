@@ -19,3 +19,12 @@ export const PREFIX_CODES = new Set([
 
 /** Section markers a provider repeats on every category in a section (`VOD - ACTION [EN]`). */
 export const KIND_MARKERS = new Set(['VOD', 'SRS', 'SERIES', 'SERIE', 'MOVIES', 'MOVIE', 'LIVE', 'TV']);
+
+/**
+ * Streaming-service tags some providers put in front of a film or series name (`NF - Spiderhead`,
+ * `AP - Severance`). `cleanTitle` strips one only before a spaced dash, as it does a country code.
+ */
+export const SERVICE_CODES = new Set([
+  'NF', 'AP', 'ATV', 'APL', 'DP', 'DSN', 'HBO', 'HM', 'MAX', 'PR', 'PV', 'AMZ', 'PMT', 'PAR',
+  'HU', 'HULU', 'SKY', 'PEA', 'PCK', 'STZ', 'CR', 'SHO', 'CIN',
+]);

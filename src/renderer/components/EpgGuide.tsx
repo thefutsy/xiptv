@@ -487,6 +487,8 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
   const style = {
     '--span-min': spanMin,
     '--now-min': nowMin,
+    /* Blocks read this to keep their label at the visible left edge of the timeline. */
+    '--scroll-left': `${view.left}px`,
   } as CSSProperties;
 
   if (!all.length) {
@@ -506,14 +508,14 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
       <div className="guide__chrome">
         <input
           ref={filterRef}
-          className="guide__filter sm"
+          className="guide__filter"
           value={query}
           spellCheck={false}
           placeholder="Filter channels"
           aria-label="Filter channels"
           onChange={(e) => setQuery(e.target.value)}
         />
-        <span className="guide__scope sm t-secondary truncate">{scopeLabel}</span>
+        <span className="guide__scope t-secondary truncate">{scopeLabel}</span>
         <Tooltip label={`${withData.length.toLocaleString()} of ${all.length.toLocaleString()} channels have guide data`}>
           <span className="guide__gcount data t-tertiary">
             {withData.length.toLocaleString()}/{all.length.toLocaleString()}
@@ -525,7 +527,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
             <button
               key={d.index}
               type="button"
-              className={classNames('guide__day sm', d.index === activeDay && 'is-on')}
+              className={classNames('guide__day', d.index === activeDay && 'is-on')}
               onClick={() => scrollTo(d.index === 0
                 ? Math.max(0, nowMin * ppm - view.width * 0.25)
                 : d.index * DAY_MIN * ppm)}
@@ -562,11 +564,15 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                 <span className="sm">Guide data only</span>
               </button>
             </div>
-            {hours.map((m) => (
-              <span key={m} className="guide__hour data" style={{ '--m0': m } as CSSProperties}>
-                {formatClock(base + m * 60)}
-              </span>
-            ))}
+            {/* An hour label under the channel column or under the opaque now pill would show
+                only a stray digit at its edge, so those two are dropped. */}
+            {hours
+              .filter((m) => m * ppm - view.left > 12 && Math.abs((m - nowMin) * ppm) > 60)
+              .map((m) => (
+                <span key={m} className="guide__hour data" style={{ '--m0': m } as CSSProperties}>
+                  {formatClock(base + m * 60)}
+                </span>
+              ))}
             <span className="guide__pill data">{formatClock(now)}</span>
             <div className="guide__cap" aria-hidden><Tally /></div>
           </div>
@@ -604,8 +610,10 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
                     ppm={ppm}
                     now={now}
                     focusMin={ring && index === focus.row ? focus.min : undefined}
+                    scrollLeft={view.left}
                     absenceLeft={gutter + Math.max(0, timelineLeft - H_OVERSCAN)}
                     absenceWidth={view.width + H_OVERSCAN * 2}
+                    voidLabelLeft={view.left + gutter + 12}
                     onTune={tune}
                     onArchive={playFromStart}
                     onInfo={(prog) => setInfo({ item, prog })}
@@ -624,7 +632,7 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
       )}
 
       {playheadOffscreen && channels.length > 0 && (
-        <button type="button" className="guide__now sm" onClick={jumpToNow}>Now</button>
+        <button type="button" className="guide__now" onClick={jumpToNow}>Now</button>
       )}
 
       {tip && (
@@ -640,10 +648,10 @@ export function EpgGuide({ channels: given, categoryName, onTune }: EpgGuideProp
             <LogoPlate item={info.item} size="large" />
             <TruncateTail text={info.item.title || info.item.name} className="h2" />
           </div>
-          <span className="kicker">{formatClock(info.prog.start)} – {formatClock(info.prog.stop)}</span>
+          <span className="guide__info-time data">{formatClock(info.prog.start)} – {formatClock(info.prog.stop)}</span>
           <h2 className="guide__info-title" dir="auto">{info.prog.title}</h2>
           {info.prog.description
-            ? <p className="sm t-secondary guide__info-plot" dir="auto">{info.prog.description}</p>
+            ? <p className="t-secondary guide__info-plot" dir="auto">{info.prog.description}</p>
             : <Absence label="No synopsis" className="guide__info-absence" />}
           <div className="guide__info-acts">
             <Button variant="primary" onClick={() => tune(info.item)}><Play size={16} strokeWidth={1.5} />Watch live</Button>
@@ -680,7 +688,7 @@ const GutterCell = memo(function GutterCell({
       <LogoPlate item={item} size="row" />
       <span className="guide__gname">
         <TruncateTail text={withoutQuality(item.title || item.name, quality)} className="live__title" />
-        {quality && <span className="chip micro live__q">{quality}</span>}
+        {quality && <span className="live__q">{quality}</span>}
       </span>
     </div>
   );
@@ -696,8 +704,12 @@ interface GuideRowProps {
   ppm: number;
   now: number;
   focusMin?: number;
+  /** Timeline scroll offset in px, to measure how much of a clipped block still shows. */
+  scrollLeft: number;
   absenceLeft: number;
   absenceWidth: number;
+  /** Left edge of the visible timeline, so a lane with no listings shows its label in view. */
+  voidLabelLeft: number;
   onTune: (i: MediaItem) => void;
   onArchive: (i: MediaItem, p: EpgProgramme) => void;
   onInfo: (p: EpgProgramme) => void;
@@ -712,11 +724,7 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
   if (!item.epgChannelId || (slots && !slots.some((s) => s.prog))) {
     return (
       <div className="guide__row" style={{ top: p.top, height: p.height }}>
-        <Absence
-          label="No guide data"
-          className="guide__void"
-          style={{ insetInlineStart: p.absenceLeft, width: p.absenceWidth }}
-        />
+        <span className="guide__void-label sm" style={{ insetInlineStart: p.voidLabelLeft }}>No guide data</span>
       </div>
     );
   }
@@ -778,6 +786,13 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
           ? { ...vars, '--elapsed': `${progressThrough(prog.start, prog.stop, p.now) * 100}%` } as CSSProperties
           : vars;
 
+        /* Under 40px of the block is still on screen, too narrow for a title, so the text goes. */
+        const sliver = (slot.startMin + slot.durMin) * p.ppm - p.scrollLeft < 40;
+
+        /* A finished programme on a channel with an archive can be played from its start. The
+           marker is words rather than a glyph, unreadable at 12px, so the block has to be wide. */
+        const catchUp = past && item.hasArchive === true && width >= 200;
+
         return (
           <div
             key={slot.key}
@@ -797,16 +812,18 @@ const GuideRow = memo(function GuideRow(p: GuideRowProps) {
               else p.onTune(item);
             }}
           >
-            <span className="guide__block-title" dir="auto">
-              {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
-            </span>
-            {tier === 'full' && (
-              <span className="guide__block-time data">
-                {formatClock(prog.start)} – {formatClock(prog.stop)}
+            {!sliver && (
+              <span className="guide__block-text">
+                <span className="guide__block-title" dir="auto">
+                  {tier === 'word' ? prog.title.split(/\s+/)[0] : prog.title}
+                </span>
+                {tier === 'full' && (
+                  <span className="guide__block-time data">
+                    {formatClock(prog.start)} – {formatClock(prog.stop)}
+                    {catchUp && <span className="guide__catchup">Catch up</span>}
+                  </span>
+                )}
               </span>
-            )}
-            {past && item.hasArchive === true && tier !== 'word' && (
-              <span className="guide__archive" aria-hidden><RotateCcw size={12} strokeWidth={1.5} /></span>
             )}
           </div>
         );

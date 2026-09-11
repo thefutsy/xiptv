@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, Delete, ListFilter } from 'lucide-react';
 import type { Category, MediaKind } from '@shared/types';
 import { useApp, type Route } from '@/state/store';
-import { Button, CategoryLabel, Skeleton, Tally } from '@/components/Primitives';
+import { Button, CategoryLabel, CategoryTag, Skeleton, Tally } from '@/components/Primitives';
 import {
   EMPTY_FACETS, activeFacetCount, deriveDecades, deriveGenres, fold, isAdultCategory, parseCategory,
   toggleIn, type Facets,
@@ -11,7 +11,7 @@ import { VList } from '@/lib/virtual';
 import { useUiPrefs } from '@/views/Settings';
 import './context.css';
 
-const ROW_H = 34;
+const ROW_H = 36;
 const QUALITY_TAGS = ['4K', 'FHD', 'HD'];
 const RATING_STEPS = [{ label: '7.5+', value: 7.5 }, { label: '6.5+', value: 6.5 }, { label: 'Any', value: 0 }];
 
@@ -39,7 +39,7 @@ function Label({ category, query }: { category: Category; query: string }) {
   if (at < 0) return <CategoryLabel category={category} />;
   return (
     <span className="catlabel">
-      {parsed.chips.map((chip) => <span key={chip} className="chip micro">{chip}</span>)}
+      <CategoryTag chips={parsed.chips} />
       <span className="truncate" dir="auto">
         {parsed.label.slice(0, at)}
         <mark className="context__hit">{parsed.label.slice(at, at + needle.length)}</mark>
@@ -69,10 +69,10 @@ function FacetPanel() {
   return (
     <div className="context__facets" data-open={open}>
       <button className="context__facet-head" onClick={() => setOpen(!open)}>
-        <ListFilter size={14} strokeWidth={1.5} />
-        <span className="context__facet-title sm">Filters</span>
+        <ListFilter size={16} strokeWidth={1.5} />
+        <span className="context__facet-title">Filters</span>
         {active > 0 && <span className="context__badge">{active}</span>}
-        <ChevronDown className="context__chev" size={14} strokeWidth={1.5} data-open={open} />
+        <ChevronDown className="context__chev" size={16} strokeWidth={1.5} data-open={open} />
       </button>
 
       {open && (
@@ -90,7 +90,7 @@ function FacetPanel() {
                       data-on={on}
                       onClick={() => patchFacets({ genres: toggleIn(facets.genres, genre) })}
                     >
-                      <span className="context__box">{on && <Check size={10} strokeWidth={2.5} />}</span>
+                      <span className="context__box">{on && <Check size={11} strokeWidth={3} />}</span>
                       <span className="truncate sm">{genre}</span>
                     </button>
                   );
@@ -205,6 +205,13 @@ export function ContextColumn() {
     return needle ? listed.filter((_, i) => foldedNames[i].includes(needle)) : listed;
   }, [listed, foldedNames, query]);
 
+  // The list runs to hundreds of rows, so the chosen category is scrolled into view.
+  const chosenId = kind ? selected[kind] : undefined;
+  const selectedIndex = useMemo(
+    () => (chosenId ? visible.findIndex((c) => c.id === chosenId) : -1),
+    [visible, chosenId],
+  );
+
   if (!kind) return null;
 
   const chosen = selected[kind];
@@ -219,7 +226,7 @@ export function ContextColumn() {
       <div className="context__head">
         <div className="context__field">
           <input
-            className="context__input sm"
+            className="context__input"
             value={query}
             spellCheck={false}
             placeholder={listed.length ? `Filter ${listed.length.toLocaleString()} categories` : 'Filter categories'}
@@ -237,7 +244,7 @@ export function ContextColumn() {
               aria-label="Clear filter"
               onClick={() => useApp.getState().patch({ categoryFilter: '' })}
             >
-              <Delete size={13} strokeWidth={1.5} />
+              <Delete size={14} strokeWidth={1.5} />
             </button>
           )}
         </div>
@@ -247,27 +254,27 @@ export function ContextColumn() {
         <div className="context__loading">
           {Array.from({ length: 14 }, (_, i) => (
             <div className="context__skel" key={i}>
-              <Skeleton height={10} width={`${52 + ((i * 37) % 38)}%`} radius={3} />
+              <Skeleton height={12} width={`${52 + ((i * 37) % 38)}%`} radius={3} />
             </div>
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <p className="context__empty sm t-tertiary">
+        <p className="context__empty t-tertiary">
           {query ? 'No categories match that filter.' : 'This source listed no categories.'}
         </p>
       ) : (
-        <VList className="context__list" count={visible.length} rowHeight={ROW_H}>
+        <VList className="context__list" count={visible.length} rowHeight={ROW_H} scrollToIndex={selectedIndex}>
           {(index) => {
             const category = visible[index];
             const isSelected = category.id === chosen;
             return (
               <button className="context__row" data-selected={isSelected} onClick={() => select(category.id)}>
                 {isSelected && <Tally />}
-                <span className="context__label sm">
+                <span className="context__label">
                   <Label category={category} query={query.trim()} />
                 </span>
                 {category.count !== undefined && (
-                  <span className="context__count">{category.count.toLocaleString()}</span>
+                  <span className="context__count data">{category.count.toLocaleString()}</span>
                 )}
               </button>
             );

@@ -8,7 +8,7 @@ import type {
   SeriesDetail,
 } from '@shared/types';
 
-import { PREFIX_CODES } from '@shared/text';
+import { PREFIX_CODES, SERVICE_CODES } from '@shared/text';
 
 import { redactText } from './redact.js';
 
@@ -44,18 +44,57 @@ const GLYPH_PREFIX_RE = new RegExp(`^[\\p{L}\\p{N}][\\p{L}\\p{N}\\s./-]{0,11}?\\
 const PIPE_PREFIX_RE = /^[A-Z]{2,5}\s*\|\s*/;
 
 /**
- * `UK - BBC 1 UHD` -> `BBC 1 UHD`. Only a token on `PREFIX_CODES` is stripped, and the dash has to
- * be followed by a space, so `MI-5` and `NCIS - Los Angeles` survive intact.
+ * `UK - BBC 1 UHD` -> `BBC 1 UHD`. Only a token on `PREFIX_CODES` or `SERVICE_CODES` is stripped,
+ * and the dash has to be followed by a space, so `MI-5` and `NCIS - Los Angeles` survive intact.
  */
 const DASH_PREFIX_RE = /^([\p{L}\p{N}]{2,5})\s*[-\u2013\u2014]\s+/u;
 
 function stripDashPrefix(s: string): string {
   const m = DASH_PREFIX_RE.exec(s);
-  if (!m || !PREFIX_CODES.has(m[1].toUpperCase())) return s;
+  if (!m) return s;
+  const code = m[1].toUpperCase();
+  if (!PREFIX_CODES.has(code) && !SERVICE_CODES.has(code)) return s;
   return s.slice(m[0].length);
 }
 
 const TRAILING_YEAR_RE = /\s*[-–—([]\s*(?:19|20)\d{2}\s*[)\]]?\s*$/;
+
+/**
+ * A bracketed tag a provider hangs off the end of a title, either a year or a language note like
+ * `(Multi-Audio)` and `(MULTI-SUBS)`. A country such as `(US)` is left alone, since it is what
+ * tells `The Office (US)` from `The Office`.
+ */
+const TAG_RE = /^(?:(?:19|20)\d{2}|multi[\s-]*(?:audio|subs?|lang(?:uage)?s?)|dual[\s-]*audio|(?:sub|dub)bed|multisub)$/i;
+
+const TAIL_GROUP_RE = /\s*[([]\s*([^()[\]]{1,24}?)\s*[)\]]\s*$/;
+
+/**
+ * Peels bracketed groups off the end. A tag is dropped, a country code is put back once the tags
+ * behind it are gone, and anything else stops the walk.
+ *
+ * `Man on Fire (2026) (US)` -> `Man on Fire (US)`
+ */
+function stripTrailingTags(input: string): string {
+  let s = input;
+  const kept: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const m = TAIL_GROUP_RE.exec(s);
+    if (!m) break;
+    const inner = m[1].trim();
+    if (TAG_RE.test(inner)) { s = s.slice(0, m.index); continue; }
+    if (/^[A-Z]{2,3}$/.test(inner)) { kept.unshift(`(${inner})`); s = s.slice(0, m.index); continue; }
+    break;
+  }
+  s = s.replace(TRAILING_DECOR_RE, '');
+  return kept.length && s.length ? `${s} ${kept.join(' ')}` : s;
+}
+
+/** `##### [UK] ENTERTAINMENT #####` is a section divider the provider ships as a channel row. */
+const SEPARATOR_RE = /^\s*[#=*_]{3,}.*[#=*_]{3,}\s*$/;
+
+export function isSeparatorName(name: string): boolean {
+  return SEPARATOR_RE.test(name);
+}
 
 const TRAILING_YEAR_CAPTURE_RE = /[-–—([]\s*((?:19|20)\d{2})\s*[)\]]?\s*$/;
 
@@ -86,9 +125,14 @@ export function cleanTitle(raw: string): string {
     if (dashed === s || dashed.length === 0) break;
     s = dashed;
   }
-  const undecorated = s.replace(TRAILING_DECOR_RE, '');
-  s = undecorated.replace(TRAILING_YEAR_RE, '');
-  if (s !== undecorated) s = s.replace(TRAILING_DECOR_RE, '');
+  let undecorated = s.replace(TRAILING_DECOR_RE, '');
+  // `Title (Multi-Audio) (2025)` sheds one tag per pass.
+  for (let i = 0; i < 4; i++) {
+    const next = stripTrailingTags(undecorated).replace(TRAILING_YEAR_RE, '').replace(TRAILING_DECOR_RE, '');
+    if (next === undecorated || next.length === 0) break;
+    undecorated = next;
+  }
+  s = undecorated;
   if (s.includes('  ')) s = s.replace(MULTI_SPACE_RE, ' ');
   s = s.trim();
 
@@ -118,6 +162,10 @@ export function parseYear(raw: string): number | undefined {
 
   const trailing = TRAILING_YEAR_CAPTURE_RE.exec(raw);
   if (trailing) return Number(trailing[1]);
+
+  // In `Man on Fire (2026) (US)` the year sits one tag in from the end.
+  const bracketed = [...raw.matchAll(/[([]\s*((?:19|20)\d{2})\s*[)\]]/g)].pop();
+  if (bracketed) return Number(bracketed[1]);
 
   return undefined;
 }
@@ -614,6 +662,7 @@ function mapLive(row: Row, fallbackCategoryId: string): MediaItem | undefined {
   const streamId = num(row.stream_id);
   if (streamId === undefined) return undefined;
   const name = str(row.name) ?? `Channel ${streamId}`;
+  if (isSeparatorName(name)) return undefined;
 
   return {
     id: `live:${streamId}`,

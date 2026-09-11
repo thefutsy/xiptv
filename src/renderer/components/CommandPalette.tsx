@@ -52,7 +52,7 @@ export function Segmented<T extends string>({
           type="button"
           role="tab"
           aria-selected={o.value === value}
-          className={classNames('mx-seg__opt sm', o.value === value && 'mx-seg__opt--on')}
+          className={classNames('mx-seg__opt', o.value === value && 'mx-seg__opt--on')}
           onClick={() => onChange(o.value)}
         >
           <span className="mx-seg__label">{o.label}</span>
@@ -362,7 +362,6 @@ function PaletteBody() {
                     onPointerMove={() => setCursor(idx)}
                     onClick={() => activate({ t: 'recent', query: q }, false)}
                   >
-                    {on && <Tally />}
                     <span className="palette__art palette__art--glyph"><Glyph icon={ICON.history} /></span>
                     <span className="palette__text"><span className="palette__name truncate">{q}</span></span>
                   </button>
@@ -372,7 +371,7 @@ function PaletteBody() {
           )}
 
           {!hasQuery && recents.length === 0 && !loading && (
-            <p className="palette__hint sm t-tertiary">
+            <p className="palette__hint t-secondary">
               Type at least two characters. xiptv folds accents, then matches against both the
               provider's raw name and the cleaned title.
             </p>
@@ -412,7 +411,6 @@ function PaletteBody() {
                     onPointerMove={() => setCursor(idx)}
                     onClick={(e) => activate({ t: 'item', item }, e.shiftKey)}
                   >
-                    {on && <Tally />}
                     <span className="palette__art">
                       {item.kind === 'live'
                         ? <LogoPlate item={item} size="compact" />
@@ -438,7 +436,7 @@ function PaletteBody() {
         </div>
 
         {error !== undefined && (
-          <p className="palette__error sm" role="alert">
+          <p className="palette__error" role="alert">
             <span className="palette__error-glyph"><Glyph icon={ICON.alert} /></span>
             <span className="truncate" dir="auto">{error}</span>
           </p>
@@ -454,9 +452,8 @@ function PaletteBody() {
           onPointerMove={() => setCursor(rows.length - 1)}
           onClick={() => openSearchPage(query)}
         >
-          {cursor === rows.length - 1 && <Tally />}
           <span className="palette__art palette__art--glyph"><Glyph icon={ICON.filter} /></span>
-          <span className="palette__text sm">
+          <span className="palette__text">
             {hasQuery && error === undefined
               ? <>See all <span className="data">{ranked.length.toLocaleString()}</span> results</>
               : <>Open the full search page</>}

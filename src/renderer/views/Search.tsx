@@ -27,12 +27,12 @@ function FacetToggle({ facets, open, onOpen, onClear }: { facets: Facets; open: 
   const count = activeFacetCount(facets);
   return (
     <div className="mx-facets__bar">
-      <button type="button" className={classNames('mx-facets__toggle sm', open && 'mx-facets__toggle--on')} onClick={onOpen}>
+      <button type="button" className={classNames('mx-facets__toggle', open && 'mx-facets__toggle--on')} onClick={onOpen}>
         <Glyph icon={ICON.sliders} />
         Filters
         {count > 0 && <span className="mx-facets__badge data">{count}</span>}
       </button>
-      {count > 0 && <button type="button" className="mx-facets__clear sm t-tertiary" onClick={onClear}>Clear all</button>}
+      {count > 0 && <button type="button" className="mx-facets__clear t-secondary" onClick={onClear}>Clear all</button>}
     </div>
   );
 }
@@ -51,7 +51,7 @@ function FacetPanel({ items, facets, onChange }: { items: MediaItem[]; facets: F
               <button
                 key={g}
                 type="button"
-                className={classNames('mx-tog sm', facets.genres.includes(g) && 'mx-tog--on')}
+                className={classNames('mx-tog', facets.genres.includes(g) && 'mx-tog--on')}
                 onClick={() => onChange({ ...facets, genres: toggleIn(facets.genres, g) })}
               >{g}</button>
             ))}
@@ -223,33 +223,35 @@ export function SearchPage() {
       </div>
 
       <div className="search__meta">
-        <p className="mx-head__count data">
-          {error !== undefined
-            ? <>Catalogue did not answer</>
-            : hasQuery
-            ? <>{shown.length.toLocaleString()} shown{shown.length !== matched.length && <> · {matched.length.toLocaleString()} matched</>}</>
-            : stats
-              ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
-              : <>Catalogue not read yet</>}
-        </p>
-        <span className="search__meta-spacer" />
         <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={setTab} />
+        {/* The tabs carry the counts, so this line appears only when a filter has cut the list. */}
+        {(error !== undefined || !hasQuery || shown.length !== scoped.length) && (
+          <p className="mx-head__count data">
+            {error !== undefined
+              ? <>Catalogue did not answer</>
+              : hasQuery
+              ? <>{shown.length.toLocaleString()} of {scoped.length.toLocaleString()} shown</>
+              : stats
+                ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
+                : <>Catalogue not read yet</>}
+          </p>
+        )}
+        <span className="search__meta-spacer" />
+        {hasQuery && (
+          <FacetToggle
+            facets={facets}
+            open={facetsOpen}
+            onOpen={() => setFacetsOpen((o) => !o)}
+            onClear={() => setFacets(EMPTY_FACETS)}
+          />
+        )}
         <label className="mx-select">
-          <span className="mx-select__label micro">Sort</span>
+          <span className="mx-select__label">Sort</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
             {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </label>
       </div>
-
-      {hasQuery && (
-        <FacetToggle
-          facets={facets}
-          open={facetsOpen}
-          onOpen={() => setFacetsOpen((o) => !o)}
-          onClear={() => setFacets(EMPTY_FACETS)}
-        />
-      )}
     </header>
   );
 
@@ -292,7 +294,7 @@ export function SearchPage() {
               </div>
               <div className="search__recents">
                 {recents.map((r) => (
-                  <button key={r} type="button" className="mx-tog sm search__recent" onClick={() => commit(r)}>
+                  <button key={r} type="button" className="mx-tog search__recent" onClick={() => commit(r)}>
                     <Glyph icon={ICON.history} />
                     <span className="truncate">{r}</span>
                   </button>

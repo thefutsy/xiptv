@@ -265,31 +265,33 @@ void main() {
 `
 
 const UNIFORMS = {
-  colors: [[0.011764705882352941,0.10980392156862745,0.14901960784313725],[0.10588235294117647,0.4235294117647059,0.6588235294117647],[0.35294117647058826,0.8235294117647058,0.9568627450980393],[0.9176470588235294,0.9764705882352941,1],[0.9176470588235294,0.9764705882352941,1],[0.9176470588235294,0.9764705882352941,1],[0.9176470588235294,0.9764705882352941,1],[0.9176470588235294,0.9764705882352941,1]] as [number, number, number][],
+  // Derived from the accent (#5EB0FF) rather than the original teal: #0E1013, #18212D, #27405A,
+  // #3A5C7E. Colour reads at a far lower luminance than a grey field of the same visibility.
+  colors: [[0.0549,0.0627,0.0745],[0.0941,0.1294,0.1765],[0.1529,0.2510,0.3529],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941],[0.2275,0.3608,0.4941]] as [number, number, number][],
   colorCount: 4,
   scale: 2.000,
-  intensity: 0.540,
+  intensity: 0.820,
   paramA: 0.470,
   warp: 0.042,
   detail: 1.536,
-  contrast: 1.158,
+  contrast: 1.040,
   brightness: 0.000,
   saturation: 1.000,
   hue: 0.0000,
-  vignette: 0.210,
+  vignette: 0.060,
   blur: 0.0020,
-  grain: 0.101,
+  grain: 0.000,
   seed: 4012.0,
   rotate: 5.6549,
   offsetX: 0.110,
   offsetY: -0.190,
-  drift: 0.116,
+  drift: 0.210,
   cursorEnabled: false,
   cursorEffect: 2.0,
   cursorStrength: 0.650,
   cursorRadius: 0.460,
   oklab: 0.0,
-  timeScale: -0.727,
+  timeScale: -1.150,
 }
 
 const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()

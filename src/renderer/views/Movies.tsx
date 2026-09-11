@@ -64,10 +64,10 @@ interface Metrics { gridMin: number; gapX: number; gapY: number; padPage: number
 function readMetrics(): Metrics {
   const style = getComputedStyle(document.documentElement);
   return {
-    gridMin: px(style, '--grid-min', 152),
-    gapX: px(style, '--grid-gap-x', 18),
-    gapY: px(style, '--grid-gap-y', 26),
-    padPage: px(style, '--pad-page', 28),
+    gridMin: px(style, '--grid-min', 168),
+    gapX: px(style, '--grid-gap-x', 20),
+    gapY: px(style, '--grid-gap-y', 28),
+    padPage: px(style, '--pad-page', 32),
   };
 }
 
@@ -255,16 +255,16 @@ function Rail({
     <section className="rail">
       <div className="rail__head">
         <div className="rail__heading">
-          <h2 className="serif-2 rail__title">{title}</h2>
+          <h2 className="t-title rail__title">{title}</h2>
           <span className="kicker rail__count">{count}</span>
         </div>
         {onSeeAll && (
-          <button type="button" className="rail__all sm" onClick={onSeeAll}>
-            See all<Glyph.ArrowRight size={14} />
+          <button type="button" className="rail__all" onClick={onSeeAll}>
+            See all<Glyph.ArrowRight size={15} />
           </button>
         )}
       </div>
-      <div className="rail__body">
+      <div className="rail__body" data-start={edges.start} data-end={edges.end}>
         <div className="rail__track" ref={track}>{children}</div>
         <button
           type="button"
@@ -272,21 +272,21 @@ function Rail({
           aria-label="Scroll back"
           tabIndex={-1}
           onClick={() => page(-1)}
-        ><Glyph.ChevronLeft size={16} /></button>
+        ><Glyph.ChevronLeft size={20} /></button>
         <button
           type="button"
           className={classNames('rail__arrow rail__arrow--end', edges.end && 'is-live')}
           aria-label="Scroll forward"
           tabIndex={-1}
           onClick={() => page(1)}
-        ><Glyph.ChevronRight size={16} /></button>
+        ><Glyph.ChevronRight size={20} /></button>
       </div>
     </section>
   );
 }
 
 function titleCount(n: number): string {
-  return `${n.toLocaleString()} ${n === 1 ? 'TITLE' : 'TITLES'}`;
+  return `${n.toLocaleString()} ${n === 1 ? 'title' : 'titles'}`;
 }
 
 function PosterGrid({
@@ -390,7 +390,7 @@ export function Browse({ kind }: { kind: BrowseKind }) {
           sticky={
             <SectionHeader
               title={seeAll.title}
-              count={titleCount(seeAll.items.length).toLowerCase()}
+              count={titleCount(seeAll.items.length)}
               tools={tools}
               onBack={() => setSeeAll(null)}
             />
@@ -411,7 +411,6 @@ export function Browse({ kind }: { kind: BrowseKind }) {
               ? <Skeleton width={168} height={12} radius={3} />
               : landingCount(categories, meta.noun)
         }
-        tools={tools}
       />
     );
 
@@ -529,7 +528,7 @@ function SectionHeader({
       )}
       <div className="browse__heading">
         <h1 className="h1 truncate">{title}</h1>
-        <div className="browse__count caption t-tertiary">{count}</div>
+        <div className="browse__count">{count}</div>
       </div>
       {tools && <div className="browse__tools">{tools}</div>}
     </header>
@@ -653,8 +652,8 @@ function RailSkeleton({ wide = false }: { wide?: boolean }) {
     <section className="rail" aria-hidden>
       <div className="rail__head">
         <div className="rail__heading">
-          <Skeleton width={220} height={26} radius={4} />
-          <Skeleton width={84} height={11} radius={3} style={{ marginTop: 6 }} />
+          <Skeleton width={200} height={22} radius={4} />
+          <Skeleton width={64} height={12} radius={3} />
         </div>
       </div>
       <div className="rail__body">

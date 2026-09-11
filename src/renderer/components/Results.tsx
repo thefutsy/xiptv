@@ -3,7 +3,12 @@ import type { MediaItem } from '@shared/types';
 import { useApp } from '@/state/store';
 import { Kicker, LogoPlate, Poster, Skeleton, TruncateTail } from '@/components/Primitives';
 import { Glyph, ICON, playItem } from '@/components/CommandPalette';
+import { metaParts } from '@/components/MediaCard';
 import { formatWhen } from '@/lib/format';
+
+export function kindWord(kind: MediaItem['kind']): string {
+  return kind === 'live' ? 'Channel' : kind === 'movie' ? 'Movie' : 'Series';
+}
 
 export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
   const navigate = useApp((s) => s.navigate);
@@ -11,7 +16,6 @@ export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
     <div className="mx-card">
       <div className="mx-card__art" style={{ height: artH }}>
         <Poster item={item} className="mx-card__img" />
-        <span className="mx-card__frame" />
         <button
           type="button"
           className="mx-card__open"
@@ -27,9 +31,9 @@ export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
           <Glyph icon={ICON.play} />
         </button>
       </div>
-      <div className="mx-card__cap">
+      <div className="mx-card__cap" title={item.title || item.name}>
         <span className="mx-card__title" dir="auto">{item.title || item.name}</span>
-        <Kicker parts={[item.year]} rating={item.rating} className="mx-card__kicker" />
+        <Kicker parts={metaParts(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-card__kicker" />
       </div>
     </div>
   );
@@ -40,7 +44,7 @@ export function PosterCardSkeleton({ artH }: { artH: number }) {
     <div className="mx-card">
       <Skeleton height={artH} radius={6} />
       <div className="mx-card__cap">
-        <Skeleton width="82%" height={12} radius={3} />
+        <Skeleton width="78%" height={12} radius={3} style={{ marginTop: 4 }} />
       </div>
     </div>
   );
@@ -70,18 +74,18 @@ export function MediaRow({ item, showKind, right }: { item: MediaItem; showKind?
               {programme.title}
             </span>
           ) : item.kind !== 'live' && (item.year !== undefined || item.rating !== undefined) ? (
-            <Kicker parts={[item.year]} rating={item.rating} className="mx-row__kicker" />
+            <Kicker parts={metaParts(item)} rating={item.kind === 'series' ? undefined : item.rating} className="mx-row__kicker" />
           ) : null}
         </span>
       </button>
       <div className="mx-row__end">
-        {showKind && <span className="mx-chip micro">{item.kind === 'live' ? 'CHANNEL' : item.kind === 'movie' ? 'MOVIE' : 'SERIES'}</span>}
         <div className="mx-row__act">
           {right}
           <button type="button" className="mx-icon-btn" aria-label={`Play ${label}`} onClick={() => void playItem(item)}>
             <Glyph icon={ICON.play} />
           </button>
         </div>
+        {showKind && <span className="mx-kind">{kindWord(item.kind)}</span>}
       </div>
     </div>
   );

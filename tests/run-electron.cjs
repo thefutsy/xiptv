@@ -6,7 +6,7 @@ const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const electron = require('electron');
 const fixture = process.argv[2];
-if (!['player-tracks.cjs', 'setup-recovery.cjs'].includes(fixture)) throw new Error('Unknown Electron fixture');
+if (!['player-tracks.cjs', 'setup-recovery.cjs', 'scoped-search.cjs'].includes(fixture)) throw new Error('Unknown Electron fixture');
 const profile = mkdtempSync(join(tmpdir(), 'xiptv-test-'));
 const child = spawn(electron, [join(__dirname, fixture)], {
   stdio: 'inherit', env: { ...process.env, XIPTV_TEST_PROFILE: profile },

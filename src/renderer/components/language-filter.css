@@ -1,0 +1,12 @@
+.language-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: var(--fs-sm); }
+.language-filter select {
+  min-width: 0;
+  max-width: 180px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  background: var(--bg-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  font: inherit;
+}
+.language-filter select:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }

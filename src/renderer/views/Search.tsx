@@ -1,3 +1,5 @@
+import { LanguageFilter } from '@/components/LanguageFilter';
+import { matchesLanguage } from '@shared/language';
 import {
   useCallback, useEffect, useMemo, useRef, useState,
   type ReactNode,
@@ -23,8 +25,8 @@ const RATING_STEPS: ReadonlyArray<{ value: string; label: string }> = [
 ];
 const QUALITIES = ['4K', 'FHD', 'HD'] as const;
 
-function FacetToggle({ facets, open, onOpen, onClear }: { facets: Facets; open: boolean; onOpen: () => void; onClear: () => void }) {
-  const count = activeFacetCount(facets);
+function FacetToggle({ facets, languageActive, open, onOpen, onClear }: { facets: Facets; languageActive?: boolean; open: boolean; onOpen: () => void; onClear: () => void }) {
+  const count = activeFacetCount(facets) + (languageActive ? 1 : 0);
   return (
     <div className="mx-facets__bar">
       <button type="button" className={classNames('mx-facets__toggle', open && 'mx-facets__toggle--on')} onClick={onOpen}>
@@ -114,6 +116,9 @@ export function SearchPage() {
   const route = useApp((s) => s.route);
   const source = useActiveSource();
 
+  const scope = route.view === 'search' ? route.kind : undefined;
+  const language = route.view === 'search' ? route.language ?? '' : '';
+  const scopeLabel = scope === 'movie' ? 'movies' : scope === 'series' ? 'TV shows' : 'Live TV';
   const routeQuery = route.view === 'search' ? route.query : '';
   const [draft, setDraft] = useState(routeQuery);
   const [query, setQuery] = useState(routeQuery);
@@ -121,7 +126,7 @@ export function SearchPage() {
   const [error, setError] = useState<string | undefined>();
   const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<KindTab>('all');
+  const [tab, setTab] = useState<KindTab>(scope ?? 'all');
   const [facets, setFacets] = useState<Facets>(EMPTY_FACETS);
   const [sort, setSort] = useState<SortKey>('provider');
   const [facetsOpen, setFacetsOpen] = useState(false);
@@ -129,10 +134,21 @@ export function SearchPage() {
   const [stats, setStats] = useState<SourceStats | undefined>();
 
   const pageRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const request = useRef(0);
   const metrics = useGridMetrics(pageRef);
 
   useEffect(() => { setDraft(routeQuery); setQuery(routeQuery); }, [routeQuery]);
+  useEffect(() => { setTab(scope ?? 'all'); setFacets(EMPTY_FACETS); }, [scope]);
+
+  // A title-bar click navigates here from another view. `autoFocus` is not reliable across
+  // Electron route transitions because the title-bar button can retain native focus, so focus
+  // explicitly after this scoped search page has mounted.
+  useEffect(() => {
+    if (!scope) return;
+    const frame = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [scope]);
 
   useEffect(() => {
     if (!source) return;
@@ -144,16 +160,27 @@ export function SearchPage() {
   useEffect(() => {
     const q = draft.trim();
     if (q === query) return;
-    const timer = setTimeout(() => setQuery(q), 220);
+    const timer = setTimeout(() => {
+      setQuery(q);
+      const app = useApp.getState();
+      if (app.route.view === 'search') app.patch({ route: { ...app.route, query: q } });
+    }, 220);
     return () => clearTimeout(timer);
   }, [draft, query]);
 
+  // Scoped search reads the full catalogue once; typing and filtering then happen locally.
+  const remoteQuery = scope ? '' : query;
+  const remoteLanguage = scope ? '' : language;
   useEffect(() => {
-    const q = query.trim();
-    if (!source || q.length < 2) { setResults([]); setError(undefined); setLoading(false); return; }
-    setLoading(true);
+    const q = remoteQuery.trim();
     const id = ++request.current;
-    window.iptv.catalog.search(source.id, q)
+    if (!source || (!scope && q.length < 2)) { setResults([]); setError(undefined); setLoading(false); return; }
+    setLoading(true);
+    setResults([]);
+    const fetchResults = scope
+      ? window.iptv.catalog.all(source.id, scope)
+      : window.iptv.catalog.search(source.id, q, undefined, remoteLanguage);
+    fetchResults
       .then((found) => {
         if (id !== request.current) return;
         setResults(found);
@@ -171,21 +198,22 @@ export function SearchPage() {
         setError(errorText(err));
         setLoading(false);
       });
-  }, [query, source, attempt]);
+    return () => { request.current++; };
+  }, [remoteQuery, remoteLanguage, scope, source, attempt]);
 
   const adultIds = useAdultIds(source?.id);
 
   const matched = useMemo(() => {
     const q = fold(query.trim());
-    if (q.length < 2) return [];
+    if (!scope && q.length < 2) return [];
     const visible = adultIds.size ? results.filter((r) => !isAdultItem(adultIds, r)) : results;
-    return visible.filter((item) => matchesName(item, q) || item.programmeMatch !== undefined);
-  }, [results, query, adultIds]);
+    return visible.filter((item) => (!scope || item.kind === scope) && (!q || matchesName(item, q) || item.programmeMatch !== undefined));
+  }, [results, query, adultIds, scope]);
 
   const counts = useMemo(() => countKinds(matched), [matched]);
 
   const scoped = useMemo(() => tab === 'all' ? matched : matched.filter((m) => m.kind === tab), [matched, tab]);
-  const shown = useMemo(() => sortItems(applyFacets(scoped, facets), sort), [scoped, facets, sort]);
+  const shown = useMemo(() => sortItems(applyFacets(scoped, facets).filter((item) => matchesLanguage(item, language)), sort), [scoped, facets, sort, language]);
 
   const asList = prefersRows(tab, counts);
   const mixed = hasMixedKinds(counts);
@@ -195,29 +223,36 @@ export function SearchPage() {
     setDraft(q);
     setQuery(q);
     if (q.length >= 2) setRecents(pushRecent(q));
-    useApp.getState().navigate({ view: 'search', query: q });
-  }, []);
+    useApp.getState().navigate({ view: 'search', query: q, kind: scope, language });
+  }, [scope, language]);
 
-  const hasQuery = query.trim().length >= 2;
+  const setLanguage = (value: string) => {
+    useApp.getState().patch({ route: { view: 'search', query: draft.trim(), kind: scope, language: value || undefined } });
+  };
+  const clearFilters = () => { setFacets(EMPTY_FACETS); setLanguage(''); };
+  const canShowResults = !!scope || query.trim().length >= 2;
 
-  const counted = hasQuery && error === undefined;
+  const counted = canShowResults && error === undefined;
   const tabs = useMemo(() => ([
     { value: 'all' as KindTab, label: 'All', count: counted ? counts.all : undefined },
     { value: 'live' as KindTab, label: 'Live TV', count: counted ? counts.live : undefined },
     { value: 'movie' as KindTab, label: 'Movies', count: counted ? counts.movie : undefined },
     { value: 'series' as KindTab, label: 'TV Shows', count: counted ? counts.series : undefined },
-  ]), [counts, counted]);
+  ]).filter((option) => !scope || option.value === scope), [counts, counted, scope]);
 
   const headerBar = (
     <header className="mx-head search__head">
       <div className="search__bar">
         <span className="search__glyph"><Glyph icon={ICON.search} /></span>
         <input
+          ref={searchInputRef}
           className="search__input"
           value={draft}
           spellCheck={false}
           autoComplete="off"
-          placeholder="Search every channel, movie and series"
+          autoFocus
+          aria-label={scope ? `Search ${scopeLabel}` : 'Search every channel, movie and series'}
+          placeholder={scope ? `Search all ${scopeLabel}` : 'Search every channel, movie and series'}
           dir="auto"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -233,13 +268,13 @@ export function SearchPage() {
       </div>
 
       <div className="search__meta">
-        <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={setTab} />
+        <Segmented className="search__tabs" label="Result kind" value={tab} options={tabs} onChange={(next) => { setTab(next); if (next === 'live') setLanguage(''); }} />
         {/* The tabs carry the counts, so this line appears only when a filter has cut the list. */}
-        {(error !== undefined || !hasQuery || shown.length !== scoped.length) && (
+        {(error !== undefined || !canShowResults || shown.length !== scoped.length) && (
           <p className="mx-head__count data">
             {error !== undefined
               ? <>Catalogue did not answer</>
-              : hasQuery
+              : canShowResults
               ? <>{shown.length.toLocaleString()} of {scoped.length.toLocaleString()} shown</>
               : stats
                 ? stats.catalogReady
@@ -249,12 +284,14 @@ export function SearchPage() {
           </p>
         )}
         <span className="search__meta-spacer" />
-        {hasQuery && (
+        {tab !== 'live' && <LanguageFilter value={language} onChange={setLanguage} />}
+        {canShowResults && (
           <FacetToggle
             facets={facets}
+            languageActive={!!language}
             open={facetsOpen}
             onOpen={() => setFacetsOpen((o) => !o)}
-            onClear={() => setFacets(EMPTY_FACETS)}
+            onClear={clearFilters}
           />
         )}
         <label className="mx-select">
@@ -294,7 +331,7 @@ export function SearchPage() {
         {() => <PosterCardSkeleton artH={metrics.artH} />}
       </VGrid>
     );
-  } else if (!hasQuery) {
+  } else if (!canShowResults) {
     body = (
       <div className="mx-scroll">
         <div className="search__idle-body" style={{ paddingInline: metrics.pad }}>
@@ -343,12 +380,12 @@ export function SearchPage() {
       <div className="mx-scroll">
         <EmptyState
           glyph={<Glyph icon={ICON.search} size={24} />}
-          title={matched.length > 0 ? 'Filtered down to nothing' : 'No title under that name'}
-          body={matched.length > 0
-            ? 'The filters above removed every match. Clearing the rating or the quality chips usually brings them back.'
+          title={matched.length > 0 || language ? 'Filtered down to nothing' : 'No title under that name'}
+          body={matched.length > 0 || language
+            ? 'No titles match these filters. Choose another language or clear the filters to see more.'
             : 'Providers name things strangely. A movie can arrive as "TITLE 2019 MULTI-SUB 4K". Try a shorter fragment without the year.'}
-          action={matched.length > 0
-            ? <Button variant="ghost" onClick={() => setFacets(EMPTY_FACETS)}>Clear filters</Button>
+          action={matched.length > 0 || language
+            ? <Button variant="ghost" onClick={clearFilters}>Clear filters</Button>
             : <Button variant="ghost" onClick={() => { setDraft(''); commit(''); }}>Clear search</Button>}
         />
       </div>
@@ -378,7 +415,7 @@ export function SearchPage() {
   return (
     <div className="mx-page search" ref={pageRef}>
       {headerBar}
-      {hasQuery && facetsOpen && (
+      {canShowResults && facetsOpen && (
         <div className="search__facets">
           <FacetPanel items={scoped} facets={facets} onChange={setFacets} />
         </div>

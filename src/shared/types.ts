@@ -42,6 +42,10 @@ export interface MediaItem {
   /** Cleaned display name with provider prefixes/symbols stripped. */
   title: string;
   categoryId: string;
+  /** Original provider category label, including language/region tags. */
+  categoryName?: string;
+  /** Provider audio/language field; never the film’s original-language metadata. */
+  language?: string;
   logo?: string;
   /** Provider-native numeric id used to build stream urls. */
   streamId: number;
@@ -294,7 +298,9 @@ export interface IpcApi {
   catalog: {
     categories(sourceId: string, kind: MediaKind): Promise<Category[]>;
     items(sourceId: string, kind: MediaKind, categoryId: string): Promise<MediaItem[]>;
-    search(sourceId: string, query: string, kind?: MediaKind): Promise<MediaItem[]>;
+    /** Complete, deduplicated catalogue for section search and filtering. */
+    all(sourceId: string, kind: MediaKind): Promise<MediaItem[]>;
+    search(sourceId: string, query: string, kind?: MediaKind, language?: string): Promise<MediaItem[]>;
     seriesDetail(sourceId: string, seriesId: string): Promise<SeriesDetail>;
     itemDetail(sourceId: string, itemId: string): Promise<MediaItem>;
     refresh(sourceId: string): Promise<void>;

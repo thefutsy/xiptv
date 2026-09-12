@@ -1,3 +1,4 @@
+import { matchesLanguage } from '../shared/language';
 import { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog } from 'electron';
 import { readFile, stat } from 'node:fs/promises';
 import { parseSubtitleText, parsePlaybackPreferences, type TrackRequest } from '../shared/tracks';
@@ -142,6 +143,21 @@ async function getCategories(sourceId: string, kind: MediaKind): Promise<Categor
   }
   const { categories } = await loadM3u(svc);
   return categories.filter((c) => c.kind === kind);
+}
+
+/** Enrich at the IPC boundary so existing catalogue caches gain category hints immediately. */
+async function withCategoryNames(sourceId: string, items: MediaItem[]): Promise<MediaItem[]> {
+  const kinds = [...new Set(items.filter((item) => item.kind !== 'live').map((item) => item.kind))];
+  const names = new Map<string, string>();
+  await Promise.all(kinds.map(async (kind) => {
+    // Missing category metadata must never prevent results or playback details from loading.
+    const categories = await getCategories(sourceId, kind).catch(() => []);
+    for (const category of categories) names.set(`${kind}:${category.id}`, category.name);
+  }));
+  return items.map((item) => item.kind === 'live' ? item : {
+    ...item,
+    categoryName: item.categoryName ?? names.get(`${item.kind}:${item.categoryId}`),
+  });
 }
 
 function itemsKey(kind: MediaKind, categoryId: string): string {
@@ -349,19 +365,19 @@ async function refreshCatalog(sourceId: string): Promise<void> {
   return run;
 }
 
-async function search(sourceId: string, query: string, kind?: MediaKind): Promise<MediaItem[]> {
+async function search(sourceId: string, query: string, kind?: MediaKind, language = ''): Promise<MediaItem[]> {
   const q = fold(query.trim());
   if (q.length < 2) return [];
   const svc = servicesFor(sourceId);
   const at = Math.floor(Date.now() / 1000);
-  const guide = kind === undefined || kind === 'live' ? await liveEpgIndex(sourceId) : undefined;
+  const guide = !language && (kind === undefined || kind === 'live') ? await liveEpgIndex(sourceId) : undefined;
 
   const matches: MediaItem[] = [];
   const seen = new Set<string>();
   const take = (items: MediaItem[]): void => {
     for (const item of items) {
       if (matches.length >= SEARCH_CAP) return;
-      if (seen.has(item.id)) continue;
+      if (seen.has(item.id) || !matchesLanguage(item, language)) continue;
       if (!fold(item.name).includes(q)
         && (item.title === item.name || !fold(item.title).includes(q))) continue;
       seen.add(item.id);
@@ -380,14 +396,14 @@ async function search(sourceId: string, query: string, kind?: MediaKind): Promis
     const snapshots = await Promise.all(
       kinds.map((k) => allXtreamItems(sourceId, k, { reportProgress: false })),
     );
-    snapshots.forEach(take);
+    for (const items of snapshots) take(language ? await withCategoryNames(sourceId, items) : items);
     if (kind === undefined) progress({ phase: 'done', message: 'Catalogue ready to search', progress: 1 });
   } else {
     const { items } = await loadM3u(svc);
     take(kind ? items.filter((i) => i.kind === kind) : items);
   }
 
-  if (guide) {
+  if (guide && !language) {
     for (const [channelId, programme] of svc.epg.matching(q, at, at + GUIDE_LOOKAHEAD_SECONDS)) {
       for (const item of guide.byChannel.get(channelId) ?? []) {
         if (matches.length >= SEARCH_CAP) break;
@@ -397,7 +413,7 @@ async function search(sourceId: string, query: string, kind?: MediaKind): Promis
       }
     }
   }
-  return matches;
+  return withCategoryNames(sourceId, matches);
 }
 
 function splitItemId(itemId: string): { kind?: MediaKind; rawId: string } {
@@ -669,17 +685,27 @@ function registerIpc(): void {
 
   handle('catalog:categories', (sourceId: string, kind: MediaKind) => getCategories(sourceId, kind));
   handle('catalog:items', async (sourceId: string, kind: MediaKind, categoryId: string) =>
-    withGuideIds(sourceId, await getItems(sourceId, kind, categoryId)));
-  handle('catalog:search', (sourceId: string, q: string, kind?: MediaKind) => search(sourceId, q, kind));
+    withGuideIds(sourceId, await withCategoryNames(sourceId, await getItems(sourceId, kind, categoryId))));
+  handle('catalog:all', async (sourceId: string, kind: MediaKind) => {
+    if (!CATALOG_KINDS.includes(kind)) throw new Error('Unknown catalogue kind.');
+    const svc = servicesFor(sourceId);
+    const items = svc.xtream
+      ? await allXtreamItems(sourceId, kind, { reportProgress: false })
+      : (await loadM3u(svc)).items.filter((item) => item.kind === kind);
+    const unique = [...new Map(items.map((item) => [item.id, item])).values()];
+    return withCategoryNames(sourceId, unique);
+  });
+  handle('catalog:search', (sourceId: string, q: string, kind?: MediaKind, language?: string) => search(sourceId, q, kind, language));
   handle('catalog:itemDetail', async (sourceId: string, itemId: string) => {
     const item = await itemDetail(sourceId, itemId);
     if (!item) throw new Error('That item is no longer in the catalogue.');
-    return (await withGuideIds(sourceId, [item]))[0];
+    return (await withGuideIds(sourceId, await withCategoryNames(sourceId, [item])))[0];
   });
   handle('catalog:seriesDetail', async (sourceId: string, seriesId: string): Promise<SeriesDetail> => {
     const svc = servicesFor(sourceId);
     if (!svc.xtream) throw new Error('Series details are only available on Xtream sources.');
-    return svc.xtream.seriesDetail(seriesId.replace(/^series:/, ''));
+    const detail = await svc.xtream.seriesDetail(seriesId.replace(/^series:/, ''));
+    return { ...detail, item: (await withCategoryNames(sourceId, [detail.item]))[0] };
   });
   handle('catalog:refresh', (sourceId: string) => refreshCatalog(sourceId));
   handle('catalog:stats', async (sourceId: string): Promise<SourceStats> => {

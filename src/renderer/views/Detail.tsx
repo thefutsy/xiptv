@@ -1,3 +1,4 @@
+import { LanguageBadge } from '@/components/LanguageBadge';
 import {
   useCallback, useEffect, useMemo, useRef, useState,
   type ReactNode,
@@ -30,6 +31,8 @@ function enrich(base: MediaItem, extra?: Partial<MediaItem>): MediaItem {
   for (const [key, value] of Object.entries(extra)) {
     if (value !== undefined && value !== null && value !== '') Object.assign(out, { [key]: value });
   }
+  // Detail records often replace the decorated catalogue name with a plain film title.
+  out.name = base.name;
   return out;
 }
 
@@ -393,6 +396,7 @@ function Spread({
           ]}
           rating={detail.rating}
         />
+        <LanguageBadge item={detail} />
         <Plot text={detail.plot} loading={loading} />
         {genres.length > 0 && (
           <div className="detail__genres">

@@ -256,7 +256,7 @@
 .search__clear { flex: none; display: grid; place-items: center; color: var(--text-tertiary); }
 .search__clear:hover { color: var(--text-primary); }
 
-.search__meta { display: flex; align-items: center; gap: 12px; margin-inline-start: -12px; }
+.search__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-inline-start: -12px; }
 .search__meta .mx-head__count { margin-inline-start: 4px; }
 .search__meta-spacer { flex: 1; }
 .search__tabs { max-width: 100%; }

@@ -29,7 +29,10 @@ function crumbsFor(
     case 'guide': return ['Live TV', 'Guide'];
     case 'favourites': return ['Favourites'];
     case 'continue': return ['Continue Watching'];
-    case 'search': return route.query ? ['Search', route.query] : ['Search'];
+    case 'search': {
+      const label = route.kind === 'movie' ? 'Movies' : route.kind === 'series' ? 'TV Shows' : route.kind === 'live' ? 'Live TV' : 'Search';
+      return route.query ? [label, route.query] : [label];
+    }
     case 'settings': return ['Settings'];
     case 'detail': {
       const parent = route.item.kind === 'movie' ? 'Movies' : route.item.kind === 'series' ? 'TV Shows' : 'Live TV';
@@ -102,11 +105,17 @@ export function TitleBar({ minimal = false }: { minimal?: boolean }) {
   const categories = useApp((s) => s.categories);
   const selected = useApp((s) => s.selectedCategory);
 
+  const searchKind = route.view === 'movies' ? 'movie' : route.view === 'shows' ? 'series'
+    : route.view === 'detail' && route.item.kind !== 'live' ? route.item.kind
+    : route.view === 'search' ? route.kind : undefined;
+  const searchLabel = searchKind === 'movie' ? 'Search movies' : searchKind === 'series' ? 'Search TV shows'
+    : searchKind === 'live' ? 'Search Live TV' : 'Search';
+
   const crumbs = minimal ? [] : crumbsFor(route, categories, selected);
 
   // macOS toggles maximise on a drag-region double-click itself. The frame is still the system's.
   const onDoubleClick = (e: MouseEvent<HTMLElement>): void => {
-    if (IS_MAC || (e.target as HTMLElement).closest('button')) return;
+    if (IS_MAC || (e.target as HTMLElement).closest('button, input, select')) return;
     window.iptv.window.maximize();
   };
 
@@ -154,11 +163,21 @@ export function TitleBar({ minimal = false }: { minimal?: boolean }) {
       {!minimal && (
         <button
           className="titlebar__search no-drag"
-          onClick={() => useApp.getState().patch({ paletteOpen: true })}
+          aria-label={searchLabel}
+          onMouseDown={(event) => {
+            // Keep the text field focused when this control is clicked from an existing search.
+            // Otherwise the browser's default button focus runs after the click handler.
+            if (route.view === 'search') event.preventDefault();
+          }}
+          onClick={() => {
+            if (route.view === 'search') document.querySelector<HTMLInputElement>('.search__input')?.focus();
+            else if (searchKind) useApp.getState().navigate({ view: 'search', query: '', kind: searchKind });
+            else useApp.getState().patch({ paletteOpen: true });
+          }}
         >
           <Search className="titlebar__search-glyph" size={15} strokeWidth={1.5} />
-          <span className="titlebar__search-label sm">Search</span>
-          <span className="titlebar__chip">{MOD_KEY}</span>
+          <span className="titlebar__search-label sm">{searchLabel}</span>
+          {!searchKind && <span className="titlebar__chip" title="Global search palette">{MOD_KEY}</span>}
         </button>
       )}
 

@@ -628,7 +628,7 @@ function parseSource(raw: unknown, fallbackId: string): Source | undefined {
 }
 
 const OPTIONAL_ITEM_STRINGS = [
-  'logo',
+  'categoryName', 'language', 'logo',
   'containerExtension',
   'plot',
   'genre',

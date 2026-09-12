@@ -242,13 +242,14 @@ interface ExtInf {
   name: string;
   tvgId: string;
   tvgName: string;
+  language: string;
   logo: string;
   group: string;
   hasArchive: boolean;
 }
 
 function emptyExtInf(): ExtInf {
-  return { name: '', tvgId: '', tvgName: '', logo: '', group: '', hasArchive: false };
+  return { name: '', tvgId: '', tvgName: '', language: '', logo: '', group: '', hasArchive: false };
 }
 
 function assignExtInfAttr(info: ExtInf, key: string, value: string): void {
@@ -259,6 +260,9 @@ function assignExtInfAttr(info: ExtInf, key: string, value: string): void {
       break;
     case 'tvg-name':
       info.tvgName = value;
+      break;
+    case 'tvg-language':
+      info.language = value;
       break;
     case 'tvg-logo':
     case 'logo':
@@ -405,6 +409,8 @@ export function parseM3u(text: string): M3uParseResult {
       name,
       title: cleanTitle(name),
       categoryId,
+      categoryName: group,
+      language: info.language || undefined,
       streamId,
     };
     if (info.logo !== '') item.logo = info.logo;

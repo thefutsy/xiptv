@@ -1,3 +1,4 @@
+import { LanguageBadge } from '@/components/LanguageBadge';
 import type { ReactNode } from 'react';
 import type { MediaItem } from '@shared/types';
 import { useApp } from '@/state/store';
@@ -21,7 +22,9 @@ export function PosterCard({ item, artH }: { item: MediaItem; artH: number }) {
           className="mx-card__open"
           aria-label={item.title || item.name}
           onClick={() => navigate({ view: 'detail', item })}
-        />
+        >
+          <LanguageBadge item={item} overlay />
+        </button>
         <button
           type="button"
           className="mx-card__play"
@@ -85,6 +88,7 @@ export function MediaRow({ item, showKind, right }: { item: MediaItem; showKind?
             <Glyph icon={ICON.play} />
           </button>
         </div>
+        <LanguageBadge item={item} />
         {showKind && <span className="mx-kind">{kindWord(item.kind)}</span>}
       </div>
     </div>

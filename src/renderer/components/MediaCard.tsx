@@ -1,3 +1,4 @@
+import { LanguageBadge } from '@/components/LanguageBadge';
 import {
   memo, useCallback, useEffect, useRef, useState,
   type ReactNode,
@@ -180,6 +181,7 @@ export const MediaCard = memo(function MediaCard({
     >
       <div className="mcard__frame" ref={frame}>
         <Poster item={item} className={classNames('mcard__poster', wide && 'mcard__poster--contain')} />
+        <LanguageBadge item={item} overlay />
         <button
           type="button"
           className={classNames('mcard__fav', favourite && 'is-on')}

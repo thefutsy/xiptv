@@ -1,3 +1,4 @@
+import { LanguageFilter } from '@/components/LanguageFilter';
 import {
   useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type ReactNode,
@@ -362,23 +363,29 @@ export function Browse({ kind }: { kind: BrowseKind }) {
 
   const category = categories?.find((c) => c.id === categoryId);
 
+  const languageFilter = <LanguageFilter value="" onChange={(language) => {
+    useApp.getState().navigate({ view: 'search', query: '', kind, language: language || undefined });
+  }} />;
   const tools = (
-    <MenuButton
-      className="browse__sort"
-      glyph={<Glyph.Sort size={14} />}
-      label={SORTS.find((s) => s.key === sort)?.label ?? 'Sort'}
-      width={196}
-    >
-      {(close) => SORTS.map((option) => (
-        <MenuItem
-          key={option.key}
-          selected={option.key === sort}
-          onSelect={() => { useApp.getState().patch({ sort: option.key }); close(); }}
-        >
-          {option.label}
-        </MenuItem>
-      ))}
-    </MenuButton>
+    <>
+      {languageFilter}
+      <MenuButton
+        className="browse__sort"
+        glyph={<Glyph.Sort size={14} />}
+        label={SORTS.find((s) => s.key === sort)?.label ?? 'Sort'}
+        width={196}
+      >
+        {(close) => SORTS.map((option) => (
+          <MenuItem
+            key={option.key}
+            selected={option.key === sort}
+            onSelect={() => { useApp.getState().patch({ sort: option.key }); close(); }}
+          >
+            {option.label}
+          </MenuItem>
+        ))}
+      </MenuButton>
+    </>
   );
 
   if (seeAll) {
@@ -404,6 +411,7 @@ export function Browse({ kind }: { kind: BrowseKind }) {
     const landingHeader = (
       <SectionHeader
         title={meta.title}
+        tools={languageFilter}
         count={
           categoryLoad.failed
             ? 'Catalogue unavailable'

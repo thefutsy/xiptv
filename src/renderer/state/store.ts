@@ -11,7 +11,7 @@ export type Route =
   | { view: 'shows' }
   | { view: 'favourites' }
   | { view: 'continue' }
-  | { view: 'search'; query: string }
+  | { view: 'search'; query: string; kind?: MediaKind; language?: string }
   | { view: 'settings' }
   | { view: 'detail'; item: MediaItem }
   | { view: 'guide' };

@@ -25,6 +25,7 @@ const SETTINGS: NavItem = { key: 'settings', label: 'Settings', Icon: SettingsIc
 function activeKey(route: Route): string {
   switch (route.view) {
     case 'guide': return 'live';
+    case 'search': return route.kind === 'movie' ? 'movies' : route.kind === 'series' ? 'shows' : route.kind === 'live' ? 'live' : 'search';
     case 'detail':
       return route.item.kind === 'movie' ? 'movies' : route.item.kind === 'series' ? 'shows' : 'live';
     default: return route.view;

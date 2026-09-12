@@ -18,7 +18,8 @@ const api: IpcApi = {
   catalog: {
     categories: (sourceId, kind) => invoke('catalog:categories', sourceId, kind),
     items: (sourceId, kind, categoryId) => invoke('catalog:items', sourceId, kind, categoryId),
-    search: (sourceId, query, kind) => invoke('catalog:search', sourceId, query, kind),
+    all: (sourceId, kind) => invoke('catalog:all', sourceId, kind),
+    search: (sourceId, query, kind, language) => invoke('catalog:search', sourceId, query, kind, language),
     seriesDetail: (sourceId, seriesId) => invoke('catalog:seriesDetail', sourceId, seriesId),
     itemDetail: (sourceId, itemId) => invoke('catalog:itemDetail', sourceId, itemId),
     refresh: (sourceId) => invoke('catalog:refresh', sourceId),

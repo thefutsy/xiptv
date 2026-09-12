@@ -31,9 +31,10 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder --linux",
     "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs",
-    "test": "node tests/media-tracks.mjs --unit",
+    "test": "node tests/media-tracks.mjs --unit && node tests/catalog-language.mjs",
     "test:media": "node tests/media-tracks.mjs",
     "test:player": "node tests/run-electron.cjs player-tracks.cjs",
+    "test:search": "node tests/run-electron.cjs scoped-search.cjs",
     "test:recovery": "node tests/run-electron.cjs setup-recovery.cjs"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+import { parsePlaybackPreferences } from '@shared/tracks';
 import {
   useCallback, useEffect, useRef, useState, useSyncExternalStore,
   type ReactNode,
@@ -410,6 +411,7 @@ export function Settings() {
   const sources = useApp((s) => s.sources);
   const activeSourceId = useApp((s) => s.activeSourceId);
   const settings = useApp((s) => s.settings);
+  const playback = parsePlaybackPreferences(settings.playback);
   const prefs = useUiPrefs();
 
   const source = sources.find((s) => s.id === activeSourceId) ?? sources[0];
@@ -633,6 +635,15 @@ export function Settings() {
           </Section>
 
           <Section label="Playback" glyph={ICON.play}>
+            <Row title="Preferred audio language" help="Use a language code such as en, fr, or en-AU. Leave empty for source audio.">
+              <input aria-label="Preferred audio language" className="mx-field__input" placeholder="Source default" defaultValue={playback.audioLanguage} onBlur={e => void write({ playback: { ...playback, audioLanguage: e.target.value } })} />
+            </Row>
+            <Row title="Preferred caption language" help="Used when captions are enabled. Leave empty for the source default.">
+              <input aria-label="Preferred caption language" className="mx-field__input" placeholder="Source default" defaultValue={playback.captionLanguage} onBlur={e => void write({ playback: { ...playback, captionLanguage: e.target.value } })} />
+            </Row>
+            <Row title="Captions" help="Automatic shows matching forced subtitles. A choice in the player applies to that playback session.">
+              <Segmented label="Default caption mode" value={playback.captionMode} options={[{ value: 'off', label: 'Off' }, { value: 'automatic', label: 'Automatic' }, { value: 'on', label: 'On' }]} onChange={v => void write({ playback: { ...playback, captionMode: v } })} />
+            </Row>
             <Row title="Hardware acceleration" help="Decode on the GPU. Turn it off if video tears or the window renders black. Takes effect after a restart.">
               <Switch
                 label="Hardware acceleration"
@@ -703,8 +714,8 @@ export function Settings() {
 
 export interface TestResult { ok: boolean; message: string; probe?: SourceProbe }
 
-export function useSourceTest(draft: Draft) {
-  const [test, setTest] = useState<TestResult | undefined>();
+export function useSourceTest(draft: Draft, initialResult?: TestResult) {
+  const [test, setTest] = useState<TestResult | undefined>(initialResult);
   const [testing, setTesting] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);

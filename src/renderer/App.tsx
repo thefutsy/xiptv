@@ -140,19 +140,21 @@ function SyncLedger() {
 
   const phase = sync?.phase ?? 'categories';
   const failed = phase === 'error';
+  const completed = phase === 'done';
 
   useEffect(() => {
     if (phase !== 'error' && phase !== 'idle' && phase !== 'done') lastPhase.current = phase;
   }, [phase]);
 
   useEffect(() => {
-    if (!source) return;
+    // Stats loads the catalogue itself. Never start another download just to paint progress.
+    if (!source || !completed) return;
     let alive = true;
     window.iptv.catalog.stats(source.id)
       .then((s) => { if (alive) setStats(s); })
       .catch(() => undefined);
     return () => { alive = false; };
-  }, [source, phase]);
+  }, [source, completed]);
 
   const at = failed ? lastPhase.current : phase;
   const cursor = phase === 'done' ? LEDGER.length : Math.max(0, LEDGER.findIndex((r) => r.phase === at));
@@ -218,6 +220,9 @@ function SyncLedger() {
 function ledgerCount(phase: SyncProgress['phase'], stats?: SourceStats): string | undefined {
   if (!stats) return undefined;
   if (phase === 'categories') return (stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString();
+  if (phase === 'live') return stats.liveItems?.toLocaleString();
+  if (phase === 'movies') return stats.movieItems?.toLocaleString();
+  if (phase === 'series') return stats.seriesItems?.toLocaleString();
   if (phase === 'epg') return stats.epgProgrammes.toLocaleString();
   return undefined;
 }
@@ -240,18 +245,28 @@ export function App() {
   useShortcuts();
 
   const [synced, setSynced] = useState<boolean>();
+  const [setupFailure, setSetupFailure] = useState<{ sourceId: string; message: string }>();
   useEffect(() => {
     if (!activeSourceId) return;
+    setSynced(undefined);
     let alive = true;
     window.iptv.catalog.stats(activeSourceId)
       .then((s) => { if (alive) setSynced(Boolean(s.lastSync)); })
-      .catch(() => { if (alive) setSynced(false); });
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setSynced(false);
+        setSetupFailure({ sourceId: activeSourceId, message: errorText(err, 'Could not load categories for this source.') });
+        useApp.getState().patch({ sync: undefined, toast: undefined });
+      });
     return () => { alive = false; };
   }, [activeSourceId]);
 
   const catalogueEmpty = !categories.live?.length && !categories.movie?.length && !categories.series?.length;
   const running = !!sync && sync.phase !== 'idle' && sync.phase !== 'done' && sync.phase !== 'epg';
   const firstRun = running && catalogueEmpty && synced === false;
+  const failedSource = setupFailure?.sourceId === activeSourceId
+    ? sources.find((s) => s.id === setupFailure?.sourceId)
+    : undefined;
 
   if (!ready) {
     return (
@@ -262,18 +277,27 @@ export function App() {
     );
   }
 
-  if (!sources.length || firstRun) {
+  if (!sources.length || failedSource || firstRun) {
     return (
       <div
         className={classNames(
           'shell shell--bare',
           accelerated && 'shell--shader',
-          !sources.length && 'shell--onboard',
+          (!sources.length || !!failedSource) && 'shell--onboard',
         )}
       >
         <ShaderBackdrop />
         <TitleBar minimal />
-        <div className="shell__bare-body">{sources.length ? <SyncLedger /> : <Onboarding />}</div>
+        <div className="shell__bare-body">
+          {failedSource ? (
+            <Onboarding
+              key={failedSource.id}
+              initialSource={failedSource}
+              initialError={setupFailure?.message}
+              onComplete={() => { setSetupFailure(undefined); setSynced(true); }}
+            />
+          ) : sources.length ? <SyncLedger /> : <Onboarding />}
+        </div>
         <Toast />
       </div>
     );

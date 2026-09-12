@@ -32,6 +32,9 @@ import { transcodeLadder, type TranscodeProfile } from './encoders.js';
 import { LiveTsSource, UpstreamError, describeUpstreamStatus } from './live-source.js';
 import { redactText } from './redact.js';
 import { VodSource } from './vod-source.js';
+import { HlsProxy } from './hls-proxy.js';
+import { parseInputInventory, subtitleOutputArgs, imageSubtitleFilter, type InputInventory } from './media-tracks.js';
+import { chooseTracks, parsePlaybackPreferences, SubtitleStreamParser, type PlaybackPreferences, type TrackRequest, type TrackState, type CueEvent, type MediaTrack } from '../../shared/tracks';
 
 
 /** The provider serves happily to VLC; some edges 403 unknown agents. */
@@ -251,6 +254,7 @@ async function demuxesMpegTsWithoutCrashing(bin: string): Promise<ProbeResult> {
 
 
 export interface RegisterOptions {
+  forceTranscode?: boolean;
   directUrl: string;
   kind: MediaKind;
   container?: string;
@@ -324,13 +328,10 @@ interface InputTracks {
   /** Demuxer name, e.g. `mpegts`. Decides whether copied AAC needs the ADTS->ASC filter. */
   format?: string;
   video?: { codec: string; profile?: string };
-  audio?: { codec: string; profile?: string };
+  audio?: { codec?: string; profile?: string };
 }
 
 const LEARNED_LIMIT = 200;
-
-const INPUT_RE = /^Input #0,\s*([^,]+),/m;
-const STREAM_RE = /^\s*Stream #\d+:\d+.*?:\s*(Video|Audio):\s*([A-Za-z0-9_]+)(?:\s*\(([^)]*)\))?/gm;
 
 /** ffmpeg's `Duration: 01:52:33.12` line names the whole input even when started with `-ss`. */
 function parseDuration(text: string): number | undefined {
@@ -338,20 +339,6 @@ function parseDuration(text: string): number | undefined {
   if (!m) return undefined;
   const secs = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(`0.${m[4] ?? '0'}`);
   return secs > 0 ? secs : undefined;
-}
-
-function parseTracks(text: string): InputTracks {
-  const tracks: InputTracks = {};
-  const input = INPUT_RE.exec(text);
-  if (input) tracks.format = input[1].trim();
-  STREAM_RE.lastIndex = 0;
-  for (let m = STREAM_RE.exec(text); m !== null; m = STREAM_RE.exec(text)) {
-    const track = { codec: m[2].toLowerCase(), profile: m[3]?.trim() };
-    // First of each kind only, matching the `-map 0:v:0` / `-map 0:a:0?` selection below.
-    if (m[1] === 'Video') tracks.video ??= track;
-    else tracks.audio ??= track;
-  }
-  return tracks;
 }
 
 /**
@@ -369,6 +356,14 @@ function canCopyAudio(track: InputTracks['audio']): boolean {
 }
 
 interface StreamEntry {
+  forceTranscode?: boolean;
+  trackGeneration?: number;
+  cancelled?: boolean;
+  inventory?: InputInventory;
+  trackError?: string;
+  audioId?: string;
+  subtitleId?: string;
+  captionDelay?: number;
   token: string;
   directUrl: string;
   kind: MediaKind;
@@ -419,7 +414,12 @@ export class StreamServer {
   readonly #entries = new Map<string, StreamEntry>();
   #active: ActiveStream | null = null;
   #generation = 0;
+  #probe: { token: string; proc: ChildProcess } | null = null;
+  #hlsProxy: { token: string; generation?: number; proxy: HlsProxy } | null = null;
+  onCues?: (event: CueEvent) => void;
+  onTracks?: (state: TrackState) => void;
   #activeProxy: ClientRequest | null = null;
+  #directToken?: string;
   #activeSource: LiveTsSource | null = null;
   #vod: { token: string; source: VodSource; dir: string } | null = null;
   #gate: Promise<unknown> = Promise.resolve();
@@ -467,7 +467,7 @@ export class StreamServer {
 
   async stop(): Promise<void> {
     await this.#serialize(() => this.#killActive());
-    this.#abortProxy();
+    await this.#abortProxy();
     const server = this.#server;
     this.#server = null;
     this.#port = 0;
@@ -489,6 +489,7 @@ export class StreamServer {
     const token = randomBytes(16).toString('hex');
     this.#entries.set(token, {
       token,
+      forceTranscode: opts.forceTranscode,
       directUrl: opts.directUrl,
       kind: opts.kind,
       container: opts.container,
@@ -519,13 +520,100 @@ export class StreamServer {
   }
 
 
-  stopStream(): void {
-    const active = this.#active;
-    if (!active) {
-      void this.#serialize(() => this.#killActive());
-      return;
-    }
-    this.#killIfActive(active.generation);
+  async stopStream(): Promise<void> {
+    if (this.#probe) terminate(this.#probe.proc);
+    await this.#serialize(() => this.#killActive());
+  }
+
+  async cancelTracks(token: string, generation: number): Promise<void> {
+    const entry = this.#entries.get(token);
+    if (!entry || entry.trackGeneration !== generation) return;
+    entry.cancelled = true;
+    if (this.#probe?.token === token) terminate(this.#probe.proc);
+    if (this.#active?.token === token) terminate(this.#active.proc);
+    await this.#serialize(async () => {
+      if (entry.trackGeneration !== generation || !entry.cancelled) return;
+      if (this.#active?.token === token || this.#vod?.token === token || this.#hlsProxy?.token === token || this.#directToken === token) await this.#killActive();
+    });
+  }
+
+  async prepareTracks(req: TrackRequest, prefs: PlaybackPreferences): Promise<{ state: TrackState; url: string; engine: PlaybackEngine; localHls: boolean; duration?: number }> {
+    const entry = this.#entries.get(req.sessionId);
+    if (!entry || !Number.isSafeInteger(req.generation) || req.generation <= (entry.trackGeneration ?? -1)) throw new Error('Expired playback session');
+    entry.trackGeneration = req.generation;
+    entry.cancelled = false;
+    if (this.#probe) terminate(this.#probe.proc);
+    if (this.#active) terminate(this.#active.proc);
+    return this.#serialize(async () => {
+      if (entry.trackGeneration !== req.generation || entry.cancelled) throw new Error('Expired playback session');
+      await this.#killActive();
+      const providerHls = pickPlaybackEngine(entry.kind, entry.container) === 'hls' && !entry.forceTranscode;
+      if (!providerHls && (!entry.inventory || req.retry)) {
+        this.onTracks?.({ sessionId: entry.token, generation: req.generation, tracks: [], status: 'discovering' });
+        await ensureUsableFfmpeg();
+        if (entry.trackGeneration !== req.generation || entry.cancelled) throw new Error('Expired playback session');
+        const input = ffmpegInput(entry, 0);
+        const { proc, exited } = spawnFfmpeg([...input.options, '-probesize', '5M', '-analyzeduration', '3000000', ...input.input], { stdout: 'ignore', stdin: input.stdin });
+        this.#probe = { token: entry.token, proc };
+        let header = '';
+        proc.stderr?.on('data', chunk => { if (header.length < 131072) header += String(chunk); });
+        const drained = new Promise<void>(resolve => proc.once('close', resolve));
+        const timeout = setTimeout(() => terminate(proc), 8000);
+        await exited;
+        await drained;
+        clearTimeout(timeout);
+        if (this.#probe?.proc === proc) this.#probe = null;
+        if (entry.trackGeneration !== req.generation || entry.cancelled) throw new Error('Expired playback session');
+        const inventory = parseInputInventory(header);
+        if (inventory.video || inventory.tracks.length) {
+          entry.inventory = inventory;
+          entry.durationSecs ??= inventory.duration;
+          entry.trackError = undefined;
+        } else entry.trackError = 'Track information unavailable';
+      }
+      const tracks = entry.inventory?.tracks ?? [];
+      const requestedPreferences = parsePlaybackPreferences({ ...prefs, audioLanguage: req.audioLanguage ?? prefs.audioLanguage, captionLanguage: req.subtitleLanguage ?? prefs.captionLanguage, captionMode: req.subtitleLanguage ? 'on' : prefs.captionMode });
+      const defaults = chooseTracks(tracks, requestedPreferences);
+      const audioId = req.audioId ?? defaults.audioId;
+      const subtitleId = req.subtitleId === null ? undefined : req.subtitleId ?? defaults.subtitleId;
+      for (const [id, kind] of [[audioId, 'audio'], [subtitleId, 'subtitle']] as const) {
+        if (id && !tracks.some(t => t.id === id && t.kind === kind && t.supported)) throw new Error('That track is not available');
+      }
+      entry.audioId = audioId;
+      entry.subtitleId = subtitleId;
+      entry.captionDelay = Number.isFinite(req.captionDelay) ? Math.max(-10, Math.min(10, req.captionDelay)) : 0;
+      const selectedAudio = tracks.find(t => t.id === audioId);
+      const defaultAudio = tracks.find(t => t.kind === 'audio');
+      let engine = pickPlaybackEngine(entry.kind, entry.container);
+      const localHls = engine === 'mpegts';
+      if (localHls) engine = 'hls';
+      else if (!providerHls && (engine !== 'native' || subtitleId || selectedAudio?.id !== defaultAudio?.id || (selectedAudio && !canCopyAudio(selectedAudio)))) {
+        engine = this.#copyPlan(entry).video && this.#copyPlan(entry).audio && !this.#subtitle(entry)?.image ? 'remux' : 'transcode';
+      }
+      if (entry.forceTranscode && !localHls) engine = 'transcode';
+      const route = providerHls ? 'manifest/0' : localHls ? 'hls/index.m3u8' : engine === 'remux' || engine === 'transcode' ? engine : 'direct';
+      const url = `http://127.0.0.1:${this.#port}/session/${entry.token}/${req.generation}/${route}`;
+      const state: TrackState = { sessionId: entry.token, generation: req.generation, tracks, audioId, subtitleId, status: entry.trackError ? 'error' : 'ready', error: entry.trackError };
+      this.onTracks?.(state);
+      return { state, url, engine, localHls, duration: entry.durationSecs };
+    });
+  }
+
+  #subtitle(entry: StreamEntry): MediaTrack | undefined { return entry.inventory?.tracks.find(t => t.id === entry.subtitleId); }
+  #validEntry(entry: StreamEntry): boolean { return entry.trackGeneration === undefined || (!this.#entries.get(entry.token)?.cancelled && this.#entries.get(entry.token)?.trackGeneration === entry.trackGeneration); }
+  #audioMap(entry: StreamEntry): string { const t = entry.inventory?.tracks.find(t => t.id === entry.audioId); return t ? `0:${t.index}` : '0:a:0?'; }
+  #wireCues(entry: StreamEntry, proc: ChildProcess): void {
+    const pipe = proc.stdio[3];
+    if (!pipe || !('setEncoding' in pipe)) return;
+    const parser = new SubtitleStreamParser();
+    this.onCues?.({ sessionId: entry.token, generation: entry.trackGeneration ?? 0, cues: [], reset: true });
+    const emit = (cues: CueEvent['cues']) => {
+      if (cues.length && this.#validEntry(entry)) this.onCues?.({ sessionId: entry.token, generation: entry.trackGeneration ?? 0, cues });
+    };
+    pipe.setEncoding('utf8');
+    pipe.on('data', (chunk: string) => emit(parser.push(chunk)));
+    pipe.on('end', () => emit(parser.push('', true)));
+    pipe.on('error', () => undefined);
   }
 
   #killIfActive(generation: number): void {
@@ -576,19 +664,14 @@ export class StreamServer {
   #clearWhenExited(active: ActiveStream): void {
     void active.exited.then(() => {
       if (this.#active?.generation !== active.generation) return;
-      this.#active = null;
-      if (active.mode === 'hls') {
-        clearTimeout(active.idleTimer);
-        liveTempDirs.delete(active.dir);
-        rmSync(active.dir, { recursive: true, force: true });
-      }
+      if (active.mode !== 'hls') this.#active = null;
     });
   }
 
   async #killActive(): Promise<void> {
     // A /direct passthrough consumes the provider's single allowed connection just as an ffmpeg
     // does, so releasing the slot has to cover both.
-    this.#abortProxy();
+    await this.#abortProxy();
     const active = this.#active;
     this.#active = null;
     if (!active) return;
@@ -602,17 +685,21 @@ export class StreamServer {
     }
   }
 
-  #abortProxy(): void {
+  async #abortProxy(): Promise<void> {
+    const hls = this.#hlsProxy;
+    this.#hlsProxy = null;
+    if (hls) await hls.proxy.close();
     const proxy = this.#activeProxy;
     this.#activeProxy = null;
-    proxy?.destroy();
+    if (proxy) { const closed = proxy.closed ? Promise.resolve() : new Promise<void>(resolve => proxy.once('close', resolve)); proxy.destroy(); await closed; }
+    this.#directToken = undefined;
     const source = this.#activeSource;
     this.#activeSource = null;
-    source?.destroy();
+    if (source) { const closed = source.closed ? Promise.resolve() : new Promise<void>(resolve => source.once('close', resolve)); source.destroy(); await closed; }
     const vod = this.#vod;
     this.#vod = null;
     if (vod) {
-      void vod.source.destroy().then(() => {
+      await vod.source.destroy().then(() => {
         liveTempDirs.delete(vod.dir);
         rmSync(vod.dir, { recursive: true, force: true });
       });
@@ -638,18 +725,38 @@ export class StreamServer {
       return;
     }
 
-    const [route, token, ...rest] = parts;
+    let [route, token, ...rest] = parts;
+    let requestedGeneration: number | undefined;
+    if (route === 'session') {
+      requestedGeneration = Number(rest.shift());
+      route = rest.shift() ?? '';
+    }
     // Tokens are 128-bit random hex handed out by register(); an unknown one gets nothing, so a
     // stray LAN device cannot enumerate what the user is watching.
-    const entry = token ? this.#entries.get(token) : undefined;
+    const stored = token ? this.#entries.get(token) : undefined;
+    const entry = stored ? requestedGeneration === undefined ? { ...stored, trackGeneration: undefined, cancelled: false, audioId: undefined, subtitleId: undefined } : { ...stored } : undefined;
     if (!entry) {
       respondError(res, 404, 'unknown stream token');
       return;
     }
 
+    if (requestedGeneration !== undefined && (requestedGeneration !== entry.trackGeneration || entry.cancelled)) { respondError(res, 410, 'expired session'); return; }
+
     const seek = parseSeek(url.searchParams.get('t'));
 
     switch (route) {
+      case 'manifest': {
+        const proxy = await this.#serialize(async () => {
+          if (!this.#validEntry(entry)) return null;
+          if (this.#hlsProxy?.token === entry.token && this.#hlsProxy.generation === entry.trackGeneration) return this.#hlsProxy.proxy;
+          await this.#killActive();
+          const proxy = new HlsProxy(entry.directUrl, `/session/${entry.token}/${entry.trackGeneration}/manifest`);
+          this.#hlsProxy = { token: entry.token, generation: entry.trackGeneration, proxy };
+          return proxy;
+        });
+        if (proxy) await proxy.serve(rest[0] ?? '0', req, res); else respondError(res, 410, 'expired session');
+        return;
+      }
       case 'remux':
         await this.#serveRemux(entry, seek, req, res);
         return;
@@ -681,6 +788,7 @@ export class StreamServer {
 
     await ensureUsableFfmpeg();
     const active = await this.#serialize(async () => {
+      if (!this.#validEntry(entry)) return null;
       await this.#killActive();
       if (res.destroyed) return null;
       return this.#spawnRemux(entry, seek);
@@ -754,7 +862,8 @@ export class StreamServer {
 
     // When the video track is being copied the encoder is never invoked, so every rung would build
     // the exact same command; walking them would just retry an identical failure six times.
-    const rungs = this.#copyPlan(entry).video ? ladder.slice(0, 1) : ladder;
+    const compatible = this.#subtitle(entry)?.image ? ladder.filter(p => !p.inputArgs.includes('-hwaccel_output_format') && !p.videoArgs.includes('-vf')) : ladder;
+    const rungs = this.#copyPlan(entry).video ? compatible.slice(0, 1) : compatible;
 
     for (const profile of rungs) {
       if (res.destroyed) return;
@@ -780,6 +889,7 @@ export class StreamServer {
     res: ServerResponse,
   ): Promise<TranscodeAttempt> {
     const active = await this.#serialize(async () => {
+      if (!this.#validEntry(entry)) return null;
       await this.#killActive();
       if (res.destroyed) return null;
       return this.#spawnTranscode(entry, seek, profile);
@@ -851,42 +961,33 @@ export class StreamServer {
   }
 
   #copyPlan(entry: StreamEntry): { video: boolean; audio: boolean; format?: string } {
-    const tracks = this.#learned.get(entry.directUrl);
+    const tracks = entry.inventory ? { video: entry.inventory.video, audio: entry.inventory.tracks.find(t => t.id === entry.audioId), format: entry.inventory.format } : this.#learned.get(entry.directUrl);
     return {
-      video: canCopyVideo(tracks?.video),
+      video: !entry.forceTranscode && !this.#subtitle(entry)?.image && canCopyVideo(tracks?.video),
       audio: canCopyAudio(tracks?.audio),
       format: tracks?.format,
     };
   }
 
   #learnTracks(url: string, proc: ChildProcess): void {
-    const stderr = proc.stderr;
-    if (!stderr) return;
     let header = '';
-    const onData = (chunk: string): void => {
-      // The stream table is the first thing ffmpeg prints after the input is opened; if it has not
-      // appeared within a few KB it is not coming.
+    proc.stderr?.on('data', (chunk: string) => {
+      if (header.length > 131072) return;
       header += chunk;
-      const tracks = parseTracks(header);
-      if (tracks.video && tracks.audio) {
-        stderr.off('data', onData);
-        if (this.#learned.size >= LEARNED_LIMIT) {
-          const oldest = this.#learned.keys().next().value;
-          if (oldest !== undefined) this.#learned.delete(oldest);
-        }
-        this.#learned.set(url, tracks);
-      } else if (header.length > 8192) {
-        stderr.off('data', onData);
+      const inventory = parseInputInventory(header);
+      if (inventory.video) {
+        this.#learned.set(url, { video: inventory.video, audio: inventory.tracks.find(t => t.kind === 'audio'), format: inventory.format });
+        if (this.#learned.size > LEARNED_LIMIT) this.#learned.delete(this.#learned.keys().next().value!);
       }
-    };
-    stderr.on('data', onData);
+    });
   }
 
   #spawnTranscode(entry: StreamEntry, seek: number, profile: TranscodeProfile): ActiveStream {
     const plan = this.#copyPlan(entry);
     // Copying video means no decode either, so the hardware decode flags come off with it.
     const videoArgs = plan.video ? ['-c:v', 'copy'] : [...profile.videoArgs];
-    const inputArgs = plan.video ? [] : profile.inputArgs;
+    const bitmap = this.#subtitle(entry)?.image ? this.#subtitle(entry) : undefined;
+    const inputArgs = plan.video || bitmap ? [] : profile.inputArgs;
     const audioArgs = plan.audio
       ? [
           '-c:a',
@@ -908,10 +1009,9 @@ export class StreamServer {
       '1000000',
       ...inputArgs,
       ...input.input,
+      ...(bitmap ? ['-filter_complex', imageSubtitleFilter(bitmap, entry.captionDelay ?? 0), '-map', '[v]'] : ['-map', '0:v:0']),
       '-map',
-      '0:v:0',
-      '-map',
-      '0:a:0?',
+      this.#audioMap(entry),
       ...videoArgs,
       ...audioArgs,
       '-dn',
@@ -926,11 +1026,13 @@ export class StreamServer {
       '-f',
       'mp4',
       'pipe:1',
+      ...subtitleOutputArgs(this.#subtitle(entry)),
     ];
 
-    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'pipe', stdin: input.stdin });
+    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'pipe', stdin: input.stdin, subtitles: !!this.#subtitle(entry) && !this.#subtitle(entry)?.image });
     this.#learnTracks(entry.directUrl, proc);
     this.#learnDuration(entry, proc);
+    this.#wireCues(entry, proc);
     const active: ActiveStream = {
       mode: 'transcode',
       token: entry.token,
@@ -954,7 +1056,7 @@ export class StreamServer {
       '0:v:0',
       // Trailing `?` keeps audio-less streams from failing outright.
       '-map',
-      '0:a:0?',
+      this.#audioMap(entry),
       '-c',
       'copy',
       // Copying ADTS AAC out of MPEG-TS into MP4 aborts with "Malformed AAC bitstream detected";
@@ -973,9 +1075,11 @@ export class StreamServer {
       '-f',
       'mp4',
       'pipe:1',
+      ...subtitleOutputArgs(this.#subtitle(entry)),
     ];
-    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'pipe', stdin: input.stdin });
+    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'pipe', stdin: input.stdin, subtitles: !!this.#subtitle(entry) && !this.#subtitle(entry)?.image });
     this.#learnDuration(entry, proc);
+    this.#wireCues(entry, proc);
     const active: ActiveStream = {
       mode: 'remux',
       token: entry.token,
@@ -1039,60 +1143,54 @@ export class StreamServer {
 
   async #servePlaylist(entry: StreamEntry, seek: number, res: ServerResponse): Promise<void> {
     await ensureUsableFfmpeg();
+    const ladder = await transcodeLadder(resolveFfmpegPath());
+    const compatible = ladder.filter(p => !p.inputArgs.includes('-hwaccel_output_format') && !p.videoArgs.includes('-vf'));
+    const profiles = this.#copyPlan(entry).video ? compatible.slice(0, 1) : compatible;
     const active = await this.#serialize(async () => {
+      if (!this.#validEntry(entry) || res.destroyed) return null;
       const current = this.#active;
-      if (current && current.mode === 'hls' && current.token === entry.token && current.offset === seek) {
-        return current;
+      if (current?.mode === 'hls' && current.token === entry.token && current.offset === seek) return current;
+      const failures: string[] = [];
+      for (const profile of profiles) {
+        await this.#killActive();
+        if (!this.#validEntry(entry) || res.destroyed) return null;
+        const attempt = this.#spawnHls(entry, seek, profile);
+        if (attempt.mode !== 'hls') return null;
+        if (await waitForPlaylist(join(attempt.dir, 'index.m3u8'), attempt)) return attempt;
+        failures.push(`${profile.label}: ${attempt.stderr().slice(-200)}`);
       }
       await this.#killActive();
-      if (res.destroyed) return null;
-      return this.#spawnHls(entry, seek);
+      throw new Error(`HLS did not start. ${failures.join('; ')}`);
     });
-    if (!active || active.mode !== 'hls') {
-      if (active) respondError(res, 500, 'hls session in an unexpected state');
-      return;
-    }
+    if (!active || active.mode !== 'hls') { respondError(res, 410, 'expired session'); return; }
     this.#touchHlsIdle(active);
-
-    const playlistPath = join(active.dir, 'index.m3u8');
-    const ready = await waitForPlaylist(playlistPath, active);
-    if (!ready) {
-      respondError(res, 504, `hls did not start: ${active.stderr().slice(-500) || 'timed out'}`);
-      this.#killIfActive(active.generation);
-      return;
-    }
-
-    const body = await readFile(playlistPath);
-    res.writeHead(200, {
-      'Content-Type': 'application/vnd.apple.mpegurl',
-      'Content-Length': String(body.byteLength),
-      'Cache-Control': 'no-store',
-    });
+    const body = await readFile(join(active.dir, 'index.m3u8'));
+    res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Content-Length': String(body.byteLength), 'Cache-Control': 'no-store' });
     res.end(body);
   }
 
-  #spawnHls(entry: StreamEntry, seek: number): ActiveStream {
+  #spawnHls(entry: StreamEntry, seek: number, profile: TranscodeProfile): ActiveStream {
     const dir = mkdtempSync(join(tmpdir(), 'xiptv-hls-'));
     liveTempDirs.add(dir);
 
     const input = ffmpegInput(entry, seek);
+    const plan = this.#copyPlan(entry);
+    const bitmap = this.#subtitle(entry)?.image ? this.#subtitle(entry) : undefined;
     const args = [
       ...input.options,
       // VOD would otherwise be muxed at disk speed and the sliding window would delete segments
       // before the receiver ever asked for them. Live input already arrives in real time.
       ...(entry.kind === 'live' ? [] : ['-re']),
       ...input.input,
-      '-map',
-      '0:v:0',
-      '-map',
-      '0:a:0?',
-      // h264 + aac are HLS-legal as-is, so no transcode is needed for live or for MKV VOD.
-      '-c',
-      'copy',
+      ...(bitmap ? ['-filter_complex', imageSubtitleFilter(bitmap, entry.captionDelay ?? 0), '-map', '[v]'] : ['-map', '0:v:0']),
+      '-map', this.#audioMap(entry),
+      ...(plan.video ? ['-c:v', 'copy'] : profile.videoArgs),
+      ...(plan.audio ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '160k']),
       '-dn',
       '-sn',
       '-map_chapters',
       '-1',
+      '-muxdelay', '0',
       '-f',
       'hls',
       '-hls_time',
@@ -1112,9 +1210,11 @@ export class StreamServer {
       '-hls_segment_filename',
       'seg%05d.ts',
       'index.m3u8',
+      ...subtitleOutputArgs(this.#subtitle(entry)),
     ];
 
-    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'ignore', stdin: input.stdin, cwd: dir });
+    const { proc, exited, stderr } = spawnFfmpeg(args, { stdout: 'ignore', stdin: input.stdin, cwd: dir, subtitles: !!this.#subtitle(entry) && !this.#subtitle(entry)?.image });
+    this.#wireCues(entry, proc);
     const generation = ++this.#generation;
     const idleTimer = setTimeout(() => this.#killIfActive(generation), HLS_IDLE_TIMEOUT_MS);
     const active: ActiveStream = {
@@ -1144,9 +1244,12 @@ export class StreamServer {
       await this.#serveVod(entry, req, res);
       return;
     }
-    this.#abortProxy();
-    await this.#serialize(() => this.#killActive());
-    if (res.destroyed) return;
+    await this.#serialize(async () => {
+      if (!this.#validEntry(entry)) return;
+      await this.#killActive();
+      this.#directToken = entry.token;
+    });
+    if (res.destroyed || !this.#validEntry(entry)) return;
 
     const isHead = req.method === 'HEAD';
     const clientRange = typeof req.headers.range === 'string' ? req.headers.range : undefined;
@@ -1159,6 +1262,7 @@ export class StreamServer {
     const upstreamRange = clientRange ?? (isHead ? 'bytes=0-0' : undefined);
 
     const forward = (target: string, redirectsLeft: number): void => {
+      if (res.destroyed || !this.#validEntry(entry)) return;
       let url: URL;
       try {
         url = new URL(target);
@@ -1256,6 +1360,7 @@ export class StreamServer {
     const source = await this.#serialize(async () => {
       // A failed source is replaced, so the player's Retry really does try again.
       if (this.#vod?.token === entry.token && !this.#vod.source.failure) return this.#vod.source;
+      if (!this.#validEntry(entry)) return null;
       await this.#killActive();
       if (res.destroyed) return null;
       const dir = mkdtempSync(join(tmpdir(), 'xiptv-vod-'));
@@ -1396,6 +1501,7 @@ interface SpawnedFfmpeg {
 }
 
 interface SpawnOptions {
+  subtitles?: boolean;
   stdout: 'pipe' | 'ignore';
   stdin?: LiveTsSource;
   cwd?: string;
@@ -1405,7 +1511,7 @@ function spawnFfmpeg(args: string[], options: SpawnOptions): SpawnedFfmpeg {
   installExitHook();
   const bin = resolveFfmpegPath();
   const proc = spawn(bin, args, {
-    stdio: [options.stdin ? 'pipe' : 'ignore', options.stdout, 'pipe'],
+    stdio: [options.stdin ? 'pipe' : 'ignore', options.stdout, 'pipe', options.subtitles ? 'pipe' : 'ignore'],
     cwd: options.cwd,
   });
   liveProcesses.add(proc);
@@ -1437,11 +1543,11 @@ function spawnFfmpeg(args: string[], options: SpawnOptions): SpawnedFfmpeg {
     // 'exit', not 'close': 'close' additionally waits for the stdio pipes to drain, and a client
     // that stopped reading leaves stdout paused indefinitely. What callers need to know is that the
     // process is gone, and with it the provider connection slot it held.
-    proc.once('exit', (code, signal) => {
+    proc.once('exit', async (code, signal) => {
       tail = `${tail}\n[ffmpeg exited code=${code} signal=${signal}]`.slice(-STDERR_LIMIT);
       // Same static-NSS crash the startup probe looks for, hit at runtime instead.
       if (signal === 'SIGSEGV') noteFfmpegCrash(bin);
-      source?.destroy();
+      if (source) { const closed = source.closed ? Promise.resolve() : new Promise<void>(resolve => source.once('close', resolve)); source.destroy(); await closed; }
       done();
     });
     proc.once('error', (err: Error) => {

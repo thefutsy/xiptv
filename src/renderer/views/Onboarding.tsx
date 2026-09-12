@@ -6,7 +6,7 @@ import { Glyph, ICON, ProgressBar } from '@/components/CommandPalette';
 import type { LucideIcon } from 'lucide-react';
 import { classNames, errorText } from '@/lib/format';
 import {
-  EMPTY_DRAFT, SourceFields, TestReport, draftComplete, draftToNew, draftToSource, useSourceTest,
+  EMPTY_DRAFT, SourceFields, TestReport, draftComplete, draftToNew, draftToSource, sourceToDraft, useSourceTest,
   type Draft, type TestResult,
 } from '@/views/Settings';
 import './misc.css';
@@ -48,18 +48,22 @@ const PHASES = [
   { phase: 'epg', label: 'Guide' },
 ] as const;
 
-export function Onboarding() {
-  const [step, setStep] = useState<Step>('welcome');
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const { test, setTest, testing, runTest } = useSourceTest(draft);
+export function Onboarding({ initialSource, initialError, onComplete }: {
+  initialSource?: Source;
+  initialError?: string;
+  onComplete?: () => void;
+}) {
+  const [step, setStep] = useState<Step>(initialSource ? 'connect' : 'welcome');
+  const [draft, setDraft] = useState<Draft>(() => initialSource ? sourceToDraft(initialSource) : EMPTY_DRAFT);
+  const { test, setTest, testing, runTest } = useSourceTest(draft, initialError ? { ok: false, message: initialError } : undefined);
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState<Source | undefined>();
+  const [added, setAdded] = useState<Source | undefined>(initialSource);
   const [sync, setSync] = useState<SyncProgress | undefined>();
   const [stats, setStats] = useState<SourceStats | undefined>();
   const accelerated = useApp((s) => s.settings.hardwareAcceleration);
   const alive = useRef(true);
 
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => window.iptv.on('sync-progress', (p) => { if (alive.current) setSync(p); }), []);
 
   const startSync = useCallback(async (source: Source) => {
@@ -71,13 +75,20 @@ export function Onboarding() {
       if (alive.current) setStats(read);
     } catch (err) {
       if (alive.current) {
-        setSync({ phase: 'error', message: 'Reading the catalogue failed', progress: null, error: errorText(err) });
+        setSync(undefined);
+        setStats(undefined);
+        setTest({ ok: false, message: errorText(err, 'Could not load categories for this source.') });
+        setStep('connect');
+        useApp.getState().patch({ sync: undefined, toast: undefined });
       }
     }
-  }, []);
+  }, [setTest]);
 
   const add = useCallback(async () => {
     setAdding(true);
+    setTest(undefined);
+    setSync(undefined);
+    setStats(undefined);
     try {
       const source = added
         ? await window.iptv.sources.update(draftToSource(draft, added.id))
@@ -96,14 +107,17 @@ export function Onboarding() {
   const finish = useCallback(async () => {
     try {
       const [sources, settings] = await Promise.all([window.iptv.sources.list(), window.iptv.settings.get()]);
-      useApp.getState().patch({ sources, activeSourceId: added?.id ?? settings.activeSourceId, settings, ready: true });
+      useApp.getState().patch({ sources, activeSourceId: added?.id ?? settings.activeSourceId, settings, ready: true,
+        sync: undefined, categories: {}, selectedCategory: {}, items: [], itemsError: undefined });
       useApp.getState().navigate({ view: 'live' });
+      onComplete?.();
     } catch (err) {
       useApp.getState().toast$(errorText(err, 'Could not open the catalogue.'), 'error');
     }
-  }, [added]);
+  }, [added, onComplete]);
 
-  const done = stats !== undefined || sync?.phase === 'done';
+  // A background guide sync can also send 'done'; only our catalogue request can finish setup.
+  const done = stats !== undefined;
 
   return (
     <div className="onboard">
@@ -115,7 +129,7 @@ export function Onboarding() {
           {step !== 'welcome' && <Rail step={step} />}
 
           {/* Keyed so every step, and the moment the catalogue lands, plays its own entrance. */}
-          <div className="onboard__stage" key={step === 'sync' && done ? 'landed' : step}>
+          <div className={classNames('onboard__stage', step === 'connect' && 'onboard__stage--connect')} key={step === 'sync' && done ? 'landed' : step}>
             {step === 'welcome' && <Welcome onStart={() => setStep('kind')} />}
 
             {step === 'kind' && (
@@ -268,15 +282,17 @@ function Connect({
   const complete = draftComplete(draft);
   return (
     <>
-      <h1 className="t-title onboard__title">{xtream ? 'Your Xtream account.' : 'Your playlist.'}</h1>
-      <p className="onboard__lede sm t-secondary">
-        {xtream
-          ? 'Type what your provider sent you. It is kept on this machine.'
-          : 'Point at a playlist URL or a file on this machine. Add a guide if you have one.'}
-      </p>
+      <div className="onboard__connect-body">
+        <h1 className="t-title onboard__title">{xtream ? 'Your Xtream account.' : 'Your playlist.'}</h1>
+        <p className="onboard__lede sm t-secondary">
+          {xtream
+            ? 'Type what your provider sent you. It is kept on this machine.'
+            : 'Point at a playlist URL or a file on this machine. Add a guide if you have one.'}
+        </p>
 
-      <SourceFields draft={draft} onChange={onDraft} autoFocus />
-      <TestReport result={test} testing={testing} />
+        <SourceFields draft={draft} onChange={onDraft} autoFocus />
+        <TestReport result={test} testing={testing} />
+      </div>
 
       <div className="onboard__acts">
         <Button variant="plain" onClick={onBack}>Back</Button>

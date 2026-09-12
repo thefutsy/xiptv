@@ -395,3 +395,27 @@
   .menu-anchor .menu { animation: none; }
   .scrub__track { transition: none; }
 }
+
+.track-menu {
+  position: absolute; inset-inline-end: 0; bottom: calc(100% + 12px); width: 340px;
+  max-width: calc(100vw - 32px); max-height: min(72vh, 690px); overflow-y: auto;
+  background: #17191d; color: #f4f4f5; border: 1px solid #3c3f45; border-radius: 12px;
+  box-shadow: 0 12px 48px #0008; padding: 16px; z-index: 30; font-size: 13px;
+}
+.track-menu__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.track-menu h3 { font-size: 12px; font-weight: 600; margin: 0 0 8px; color: #b8bbc2; }
+.track-menu section { border-top: 1px solid #34373d; margin-top: 14px; padding-top: 14px; }
+.track-menu button { color: inherit; background: transparent; border: 0; cursor: pointer; border-radius: 5px; padding: 5px 7px; text-align: start; }
+.track-menu button:hover { background: #ffffff12; }
+.track-menu button:focus-visible, .track-menu input:focus-visible, .track-menu select:focus-visible { outline: 2px solid #9ec7ff; outline-offset: 2px; }
+.track-menu button:disabled { opacity: .5; cursor: default; }
+.track-menu__track { width: 100%; display: flex; align-items: center; gap: 9px; }
+.track-menu__track > svg { flex-shrink: 0; }
+.track-menu__track > span { overflow-wrap: anywhere; }
+.track-menu__track small { display: block; color: #a7abb3; font-size: 11px; margin-top: 3px; }
+.track-menu p { color: #b8bbc2; margin: 7px 0; font-size: 12px; }
+.track-menu label { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.track-menu input[type=range] { width: 100%; accent-color: #d3e4ff; }
+.track-menu select, .track-menu input[type=number] { background: #262930; color: inherit; border: 1px solid #555b66; border-radius: 5px; padding: 4px; max-width: 110px; }
+.track-menu__error { color: #ffcdad !important; }
+.track-menu__load { margin-top: 8px; }

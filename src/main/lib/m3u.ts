@@ -27,6 +27,9 @@ export interface M3uParseResult {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 5;
+/** A body that keeps sending bytes forever is not a playlist. Bound the whole download as well
+ * as the per-socket idle timeout, while still allowing large playlists several minutes to land. */
+const MAX_PLAYLIST_TIME_MS = 5 * 60_000;
 const MAX_WIRE_BYTES = 600 * 1024 * 1024;
 const MAX_TEXT_CHARS = 300_000_000;
 const PROGRESS_STEP_BYTES = 512 * 1024;
@@ -502,7 +505,23 @@ async function fetchOverHttp(
   timeoutMs: number,
   onProgress?: (bytes: number) => void,
 ): Promise<string> {
-  const res = await openHttp(url, timeoutMs);
+  let openDeadline: ReturnType<typeof setTimeout> | undefined;
+  const res = await Promise.race([
+    openHttp(url, timeoutMs),
+    new Promise<IncomingMessage>((_, reject) => {
+      openDeadline = setTimeout(() => reject(new PlaylistError(
+        `Playlist connection timed out after ${Math.round(timeoutMs / 1000)} seconds from ${redactUrl(url)}.`,
+      )), timeoutMs);
+    }),
+  ]).finally(() => {
+    if (openDeadline !== undefined) clearTimeout(openDeadline);
+  });
+  const totalTimeoutMs = Math.max(timeoutMs, MAX_PLAYLIST_TIME_MS);
+  const deadline = setTimeout(() => {
+    res.destroy(new PlaylistError(
+      `Playlist download timed out after ${Math.round(totalTimeoutMs / 1000)} seconds from ${redactUrl(url)}.`,
+    ));
+  }, totalTimeoutMs);
   try {
     const encoding = String(res.headers['content-encoding'] ?? '');
     return await decodeBody(res, encoding, onProgress);
@@ -513,6 +532,7 @@ async function fetchOverHttp(
     const message = err instanceof Error ? err.message : String(err);
     throw new PlaylistError(`Playlist download failed while reading the body: ${message}`, { cause: err });
   } finally {
+    clearTimeout(deadline);
     res.destroy();
   }
 }
@@ -556,6 +576,8 @@ function sendRequest(url: URL, timeoutMs: number): Promise<IncomingMessage> {
   return new Promise((resolve, reject) => {
     const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
     let response: IncomingMessage | null = null;
+    let settled = false;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     const req = send(
       url,
       {
@@ -567,12 +589,17 @@ function sendRequest(url: URL, timeoutMs: number): Promise<IncomingMessage> {
         },
       },
       (res) => {
+        settled = true;
+        if (deadline !== undefined) clearTimeout(deadline);
         response = res;
         resolve(res);
       },
     );
 
     const fail = (error: PlaylistError): void => {
+      if (settled && response === null) return;
+      settled = true;
+      if (deadline !== undefined) clearTimeout(deadline);
       if (response === null) reject(error);
       else response.destroy(error);
       if (!req.destroyed) req.destroy(error);
@@ -593,6 +620,10 @@ function sendRequest(url: URL, timeoutMs: number): Promise<IncomingMessage> {
       socket.once('timeout', timedOut);
     });
     req.setTimeout(timeoutMs, timedOut);
+    // Socket timeouts are not reliable for every DNS/proxy combination. Keep a second,
+    // request-level deadline so a provider that never completes the connection cannot leave
+    // the catalogue on an endless "Downloading playlist…" state.
+    deadline = setTimeout(timedOut, timeoutMs);
 
     req.on('error', (err: NodeJS.ErrnoException) => {
       fail(

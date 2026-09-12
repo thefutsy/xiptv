@@ -28,3 +28,32 @@ jobs:
 
       # tsc --noEmit && vite build, the same command the release job runs.
       - run: npm run build
+
+  playback:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - if: runner.os == 'Windows'
+        run: choco install unzip -y --no-progress
+      - run: npm run ffmpeg:fetch
+      - run: npm run build
+      - run: npm run test:media
+      - name: Configure Electron sandbox
+        if: runner.os == 'Linux'
+        run: |
+          node node_modules/electron/install.js
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:player && xvfb-run -a npm run test:recovery
+      - if: runner.os != 'Linux'
+        run: npm run test:player && npm run test:recovery

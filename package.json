@@ -1,6 +1,6 @@
 {
   "name": "xiptv",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Cross-platform desktop IPTV player for Xtream Codes and M3U, with an XMLTV guide and Chromecast",
   "main": "dist-electron/main/index.js",
   "author": "thefutsy",
@@ -30,7 +30,11 @@
     "dist:win": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "node scripts/fetch-ffmpeg.mjs --all && npm run build && electron-builder --linux",
-    "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs"
+    "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs",
+    "test": "node tests/media-tracks.mjs --unit",
+    "test:media": "node tests/media-tracks.mjs",
+    "test:player": "node tests/run-electron.cjs player-tracks.cjs",
+    "test:recovery": "node tests/run-electron.cjs setup-recovery.cjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

@@ -55,6 +55,7 @@ export class VodSource {
   /** Downloaded bytes, as sorted spans that neither overlap nor touch. */
   readonly #have: Span[] = [];
   #upstream: Upstream | null = null;
+  #connecting: Promise<void> = Promise.resolve();
   #failures = 0;
   #failure: Error | undefined;
   #playerPos = 0;
@@ -88,6 +89,7 @@ export class VodSource {
 
   async destroy(): Promise<void> {
     this.#fail(new Error('The stream was stopped.'));
+    await this.#connecting;
     await this.#file.then((fh) => fh.close()).catch(() => undefined);
   }
 
@@ -141,7 +143,7 @@ export class VodSource {
     this.#stop();
     const up: Upstream = { pos: this.#seekable ? offset : 0, abort: new AbortController() };
     this.#upstream = up;
-    void this.#connect(up);
+    this.#connecting = this.#connecting.then(() => this.#connect(up));
   }
 
   #stop(): void {
@@ -173,7 +175,7 @@ export class VodSource {
         this.#fail(error ?? new Error('The provider closed the connection without sending anything.'));
         return;
       }
-      await delay(Math.min(RECONNECT_DELAY_MS * 2 ** this.#failures, MAX_RECONNECT_DELAY_MS));
+      await delay(Math.min(RECONNECT_DELAY_MS * 2 ** this.#failures, MAX_RECONNECT_DELAY_MS), undefined, { signal: up.abort.signal }).catch(() => undefined);
     }
     if (this.#upstream === up) {
       this.#upstream = null;

@@ -1,3 +1,4 @@
+import { parsePlaybackPreferences } from '../../shared/tracks';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
@@ -504,6 +505,7 @@ function parseKind(value: unknown): MediaKind | undefined {
 
 function defaultSettings(): Settings {
   return {
+    playback: parsePlaybackPreferences(undefined),
     liveFormat: 'ts', hardwareAcceleration: true, epgAutoRefreshHours: 12,
     epgFill: { auto: true, enabled: [], disabled: [] },
   };
@@ -576,6 +578,7 @@ function parseSettings(raw: unknown, base: Settings): Settings {
   const rawHours = raw.epgAutoRefreshHours;
   const hours = num(rawHours);
   const settings: Settings = {
+    playback: parsePlaybackPreferences(raw.playback, base.playback),
     liveFormat,
     hardwareAcceleration:
       typeof raw.hardwareAcceleration === 'boolean'

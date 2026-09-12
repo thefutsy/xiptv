@@ -1,6 +1,8 @@
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
 import type { ResolvedStream } from '@shared/types';
+import { TrackPlayback, type TrackPlaybackOptions } from './playback-tracks';
+export { resetPlaybackMemory } from './playback-tracks';
 
 /**
  * The provider allows exactly ONE concurrent connection, and a leaked mpegts.js player keeps its
@@ -8,12 +10,7 @@ import type { ResolvedStream } from '@shared/types';
  * looks like a dead stream.
  */
 
-export interface AttachOptions {
-  startAt?: number;
-  onError?: (message: string) => void;
-  onRecovering?: () => void;
-  onUnsupported?: () => void;
-}
+export type AttachOptions = TrackPlaybackOptions;
 
 interface Attachment {
   video: HTMLVideoElement;
@@ -21,6 +18,8 @@ interface Attachment {
 }
 
 let current: Attachment | null = null;
+let controller: TrackPlayback | undefined;
+export const getTrackController = () => controller;
 
 const COPY = {
   network: 'The provider closed the connection before any video arrived.',
@@ -57,14 +56,19 @@ function describeMediaError(video: HTMLVideoElement): string {
 }
 
 function withTime(url: string, seconds: number): string {
-  const t = Math.max(0, Math.round(seconds));
-  const stripped = url.replace(/([?&])t=\d+(&|$)/, (_m, lead: string, tail: string) => (tail ? lead : ''))
+  const t = Math.max(0, Math.round(seconds * 1000) / 1000);
+  const stripped = url.replace(/([?&])t=\d+(?:\.\d+)?(&|$)/, (_m, lead: string, tail: string) => (tail ? lead : ''))
     .replace(/[?&]$/, '');
   if (!t) return stripped;
   return `${stripped}${stripped.includes('?') ? '&' : '?'}t=${t}`;
 }
 
 export function detach(): void {
+  controller?.dispose(); controller = undefined;
+  detachMedia();
+}
+
+function detachMedia(): void {
   const a = current;
   current = null;
   if (!a) return;
@@ -110,6 +114,9 @@ function attachHls(video: HTMLVideoElement, stream: ResolvedStream, opts: Attach
   const live = stream.kind === 'live';
   const hls = new Hls({
     lowLatencyMode: live,
+    renderTextTracksNatively: false,
+    captionsTextTrack1Label: 'CC1', captionsTextTrack2Label: 'CC2',
+    captionsTextTrack1LanguageCode: '', captionsTextTrack2LanguageCode: '',
     backBufferLength: live ? 30 : 90,
     maxBufferLength: live ? 12 : 60,
     liveSyncDurationCount: 3,
@@ -140,6 +147,7 @@ function attachHls(video: HTMLVideoElement, stream: ResolvedStream, opts: Attach
     reportUnsupported(opts);
   });
 
+  opts.onHls?.(hls);
   hls.attachMedia(video);
   hls.loadSource(stream.url);
 
@@ -287,42 +295,23 @@ function attachMpegts(video: HTMLVideoElement, stream: ResolvedStream, opts: Att
   };
 }
 
-export async function attachStream(
-  video: HTMLVideoElement,
-  stream: ResolvedStream,
-  opts: AttachOptions = {},
-): Promise<void> {
+export async function attachStream(video: HTMLVideoElement, stream: ResolvedStream, opts: AttachOptions = {}): Promise<void> {
   detach();
+  controller = new TrackPlayback(video, stream, opts, attachEngine);
+  await controller.start();
+}
 
+function attachEngine(video: HTMLVideoElement, stream: ResolvedStream, opts: AttachOptions): () => void {
+  detachMedia();
   const startAt = Math.max(0, opts.startAt ?? 0);
-  let attachment: Attachment;
-
   switch (stream.engine) {
-    case 'mpegts':
-      attachment = attachMpegts(video, stream, opts);
-      break;
-    case 'hls':
-      attachment = attachHls(video, stream, opts);
-      break;
-    case 'remux':
-    case 'transcode':
-      attachment = attachNative(video, withTime(stream.url, startAt), opts);
-      break;
-    default:
-      attachment = attachNative(video, stream.url, opts);
-      break;
+    case 'mpegts': current = attachMpegts(video, stream, opts); break;
+    case 'hls': current = attachHls(video, { ...stream, url: stream.localHls ? withTime(stream.url, startAt) : stream.url }, opts); break;
+    case 'remux': case 'transcode': current = attachNative(video, withTime(stream.url, startAt), opts); break;
+    default: current = attachNative(video, stream.url, opts); break;
   }
-
-  current = attachment;
-
-  if (startAt > 0 && !isPiped(stream) && stream.kind !== 'live') {
-    const seek = (): void => {
-      if (video.currentTime < startAt - 1) video.currentTime = startAt;
-    };
-    video.addEventListener('loadedmetadata', seek, { once: true });
-  }
-
-  await video.play().catch(() => undefined);
+  const attached = current;
+  return () => { if (current === attached) detachMedia(); };
 }
 
 export interface MediaClock {
@@ -336,20 +325,17 @@ export function mediaClock(stream: ResolvedStream, startAt: number): MediaClock 
 
 /** ffmpeg pipes cannot be ranged: seeking means reloading with `?t=` and offsetting the clock. */
 export function isPiped(stream: ResolvedStream): boolean {
-  return stream.engine === 'remux' || stream.engine === 'transcode';
+  return stream.engine === 'remux' || stream.engine === 'transcode' || stream.localHls === true;
 }
 
 export function seekTo(video: HTMLVideoElement, stream: ResolvedStream, seconds: number): MediaClock {
   const target = Math.max(0, seconds);
 
-  if (!isPiped(stream)) {
-    video.currentTime = target;
-  } else {
-    const resume = !video.paused;
-    video.src = withTime(stream.url, target);
-    video.load();
-    if (resume) void video.play().catch(() => undefined);
+  if (controller) {
+    controller.seek(target);
+    return mediaClock(controller.effective, isPiped(controller.effective) ? target : 0);
   }
+  video.currentTime = target;
   return mediaClock(stream, target);
 }
 

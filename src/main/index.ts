@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme } from 'electron';
-import { join, dirname } from 'node:path';
+import { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog } from 'electron';
+import { readFile, stat } from 'node:fs/promises';
+import { parseSubtitleText, parsePlaybackPreferences, type TrackRequest } from '../shared/tracks';
+import { join, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
   Source, XtreamSource, MediaKind, MediaItem, Category, SeriesDetail, EpgProgramme, NowNext,
@@ -61,6 +63,7 @@ interface SourceServices {
   xtream?: XtreamClient;
   epg: EpgStore;
   m3u?: { items: MediaItem[]; categories: Category[]; epgUrl?: string; urls: ReadonlyMap<string, string> };
+  m3uInFlight?: Promise<NonNullable<SourceServices['m3u']>>;
 }
 
 const services = new Map<string, SourceServices>();
@@ -90,6 +93,18 @@ const progress = (p: SyncProgress): void => send('sync-progress', p);
 
 async function loadM3u(svc: SourceServices): Promise<NonNullable<SourceServices['m3u']>> {
   if (svc.m3u) return svc.m3u;
+  if (svc.m3uInFlight) return svc.m3uInFlight;
+  // Startup stats and the category sidebar ask for the same playlist concurrently.
+  const run = readM3u(svc).catch((err: unknown) => {
+    progress({ phase: 'error', message: 'Could not load the playlist.', progress: null,
+      error: err instanceof Error ? redactText(err.message) : String(err) });
+    throw err;
+  }).finally(() => { svc.m3uInFlight = undefined; });
+  svc.m3uInFlight = run;
+  return run;
+}
+
+async function readM3u(svc: SourceServices): Promise<NonNullable<SourceServices['m3u']>> {
   const cached = store.getCached(svc.source.id, 'm3u:playlist', CATALOG_TTL_MS, parseCachedPlaylist);
   if (cached) {
     svc.m3u = {
@@ -101,7 +116,10 @@ async function loadM3u(svc: SourceServices): Promise<NonNullable<SourceServices[
     return svc.m3u;
   }
   progress({ phase: 'live', message: 'Downloading playlist…', progress: null });
-  const text = await fetchPlaylist(svc.source.url, 120_000, (bytes) =>
+  // A provider that leaves get.php open without sending a complete playlist must not strand the
+  // first-run screen for two minutes. Active transfers reset the downloader's idle timer, so large
+  // playlists still have time to finish.
+  const text = await fetchPlaylist(svc.source.url, 30_000, (bytes) =>
     progress({ phase: 'live', message: `Downloading playlist… ${(bytes / 1048576).toFixed(1)} MB`, progress: null }));
   progress({ phase: 'live', message: 'Parsing playlist…', progress: null });
   const parsed = parseM3u(text);
@@ -130,12 +148,86 @@ function itemsKey(kind: MediaKind, categoryId: string): string {
   return `items:${kind}:${categoryId}`;
 }
 
+function allItemsKey(kind: MediaKind): string {
+  return `all:${kind}`;
+}
+
+const CATALOG_KINDS: readonly MediaKind[] = ['live', 'movie', 'series'];
+
+function syncPhase(kind: MediaKind): SyncProgress['phase'] {
+  return kind === 'live' ? 'live' : kind === 'movie' ? 'movies' : 'series';
+}
+
+function kindLabel(kind: MediaKind): string {
+  return kind === 'live' ? 'channels' : kind === 'movie' ? 'movies' : 'series';
+}
+
+const allItemsInFlight = new Map<string, Promise<MediaItem[]>>();
+
+interface AllItemsOptions {
+  force?: boolean;
+  reportProgress?: boolean;
+}
+
+/**
+ * Reads one complete Xtream list and keeps it as the source-level search snapshot. The provider
+ * sometimes repeats an item in several categories, so callers dedupe by stable item id when they
+ * need unique search results while the raw rows remain useful for category browsing.
+ */
+async function allXtreamItems(
+  sourceId: string,
+  kind: MediaKind,
+  { force = false, reportProgress = true }: AllItemsOptions = {},
+): Promise<MediaItem[]> {
+  const svc = servicesFor(sourceId);
+  if (!svc.xtream) throw new Error('Full catalogue snapshots are only available on Xtream sources.');
+
+  const key = allItemsKey(kind);
+  if (!force) {
+    const hit = store.getCached(sourceId, key, CATALOG_TTL_MS, cachedMediaItems);
+    if (hit) return hit;
+  }
+
+  const flightKey = `${sourceId}:${kind}`;
+  const existing = allItemsInFlight.get(flightKey);
+  if (existing) return existing;
+
+  const phase = syncPhase(kind);
+  const label = kindLabel(kind);
+  const run = (async () => {
+    if (reportProgress) progress({ phase, message: `Reading ${label}…`, progress: null });
+    const items = await svc.xtream!.allItems(kind, ({ receivedBytes }) => {
+      if (reportProgress) {
+        progress({
+          phase,
+          message: `Reading ${label}… ${(receivedBytes / 1048576).toFixed(1)} MB`,
+          progress: null,
+        });
+      }
+    });
+    store.setCached(sourceId, key, items);
+    if (reportProgress) {
+      progress({ phase, message: `${items.length.toLocaleString()} ${label} indexed`, progress: 1 });
+    }
+    return items;
+  })().finally(() => allItemsInFlight.delete(flightKey));
+
+  allItemsInFlight.set(flightKey, run);
+  return run;
+}
+
 async function getItems(sourceId: string, kind: MediaKind, categoryId: string): Promise<MediaItem[]> {
   const svc = servicesFor(sourceId);
   if (svc.xtream) {
     const key = itemsKey(kind, categoryId);
     const hit = store.getCached(sourceId, key, CATALOG_TTL_MS, cachedMediaItems);
     if (hit) return hit;
+    const snapshot = store.getCached(sourceId, allItemsKey(kind), CATALOG_TTL_MS, cachedMediaItems);
+    if (snapshot) {
+      const items = snapshot.filter((item) => item.categoryId === categoryId);
+      store.setCached(sourceId, key, items);
+      return items;
+    }
     const items = await svc.xtream.items(kind, categoryId);
     store.setCached(sourceId, key, items);
     return items;
@@ -146,11 +238,8 @@ async function getItems(sourceId: string, kind: MediaKind, categoryId: string): 
 
 async function allLive(sourceId: string): Promise<MediaItem[]> {
   const svc = servicesFor(sourceId);
-  const hit = store.getCached(sourceId, 'all:live', CATALOG_TTL_MS, cachedMediaItems);
-  if (hit) return hit;
-  const all = await svc.xtream!.allItems('live');
-  store.setCached(sourceId, 'all:live', all);
-  return all;
+  if (!svc.xtream) throw new Error('All live items are only available on Xtream sources.');
+  return allXtreamItems(sourceId, 'live', { reportProgress: false });
 }
 
 async function liveItems(sourceId: string): Promise<MediaItem[]> {
@@ -214,6 +303,51 @@ async function withGuideIds(sourceId: string, items: MediaItem[]): Promise<Media
 
 const SEARCH_CAP = 300;
 const GUIDE_LOOKAHEAD_SECONDS = 24 * 60 * 60;
+const catalogRefreshInFlight = new Map<string, Promise<void>>();
+
+/** Reads categories and the complete item lists, like FredTV's source refresh. */
+async function refreshCatalog(sourceId: string): Promise<void> {
+  const existing = catalogRefreshInFlight.get(sourceId);
+  if (existing) return existing;
+
+  const run = (async () => {
+    store.clearCache(sourceId);
+    services.delete(sourceId);
+    liveEpgIndexes.delete(sourceId);
+
+    const svc = servicesFor(sourceId);
+    if (!svc.xtream) {
+      await loadM3u(svc);
+      return;
+    }
+
+    progress({ phase: 'categories', message: 'Reading categories…', progress: null });
+    const categoryLists = await Promise.all(
+      CATALOG_KINDS.map((kind) => svc.xtream!.categories(kind)),
+    );
+    categoryLists.forEach((categories, i) => {
+      store.setCached(sourceId, `cats:${CATALOG_KINDS[i]}`, categories);
+    });
+    const categoryCount = categoryLists.reduce((sum, categories) => sum + categories.length, 0);
+    progress({ phase: 'categories', message: `${categoryCount.toLocaleString()} categories indexed`, progress: 1 });
+
+    // Keep the large lists sequential so the provider is not asked to build three large JSON
+    // responses at once. Search shares these same in-flight/cache entries if it starts meanwhile.
+    for (const kind of CATALOG_KINDS) await allXtreamItems(sourceId, kind, { force: true });
+    progress({ phase: 'done', message: 'Catalogue ready to search', progress: 1 });
+  })().catch((err: unknown) => {
+    progress({
+      phase: 'error',
+      message: 'Could not read the catalogue.',
+      progress: null,
+      error: err instanceof Error ? redactText(err.message) : String(err),
+    });
+    throw err;
+  }).finally(() => catalogRefreshInFlight.delete(sourceId));
+
+  catalogRefreshInFlight.set(sourceId, run);
+  return run;
+}
 
 async function search(sourceId: string, query: string, kind?: MediaKind): Promise<MediaItem[]> {
   const q = fold(query.trim());
@@ -242,18 +376,12 @@ async function search(sourceId: string, query: string, kind?: MediaKind): Promis
   };
 
   if (svc.xtream) {
-    const kinds: MediaKind[] = kind ? [kind] : ['live', 'movie', 'series'];
-    for (const k of kinds) {
-      if (k === 'live') {
-        take(await allLive(sourceId));
-        continue;
-      }
-      for (const cat of await getCategories(sourceId, k)) {
-        const cached = store.getCached(sourceId, itemsKey(k, cat.id), CATALOG_TTL_MS, cachedMediaItems);
-        if (cached) take(cached);
-        if (matches.length >= SEARCH_CAP) break;
-      }
-    }
+    const kinds: readonly MediaKind[] = kind ? [kind] : CATALOG_KINDS;
+    const snapshots = await Promise.all(
+      kinds.map((k) => allXtreamItems(sourceId, k, { reportProgress: false })),
+    );
+    snapshots.forEach(take);
+    if (kind === undefined) progress({ phase: 'done', message: 'Catalogue ready to search', progress: 1 });
   } else {
     const { items } = await loadM3u(svc);
     take(kind ? items.filter((i) => i.kind === kind) : items);
@@ -293,10 +421,13 @@ async function findItem(sourceId: string, itemId: string): Promise<MediaItem | u
     if (found) return found;
   }
   if (kind !== undefined) {
+    const snapshot = store.getCached(sourceId, allItemsKey(kind), CATALOG_TTL_MS, cachedMediaItems);
+    const found = snapshot?.find((i) => i.id === itemId);
+    if (found) return found;
     for (const cat of await getCategories(sourceId, kind)) {
       const cached = store.getCached(sourceId, itemsKey(kind, cat.id), CATALOG_TTL_MS, cachedMediaItems);
-      const found = cached?.find((i) => i.id === itemId);
-      if (found) return found;
+      const categoryItem = cached?.find((i) => i.id === itemId);
+      if (categoryItem) return categoryItem;
     }
   }
   return askProviderForItem(svc, sourceId, itemId);
@@ -454,7 +585,7 @@ async function resolveStream(req: PlayRequest): Promise<ResolvedStream> {
   // It matters when a quit tore the server down without the process ever exiting: the app would
   // otherwise refuse to play anything for the rest of its life.
   await streamServer.start();
-  const reg = streamServer.register({ directUrl, kind, container, title, durationSecs: duration });
+  const reg = streamServer.register({ directUrl, kind, container, title, durationSecs: duration, forceTranscode });
 
   const url = engine === 'transcode' ? reg.transcodeUrl
     : engine === 'remux' ? reg.remuxUrl
@@ -467,6 +598,7 @@ async function resolveStream(req: PlayRequest): Promise<ResolvedStream> {
   return {
     url,
     directUrl,
+    sessionId: reg.token,
     engine,
     kind,
     title,
@@ -549,21 +681,34 @@ function registerIpc(): void {
     if (!svc.xtream) throw new Error('Series details are only available on Xtream sources.');
     return svc.xtream.seriesDetail(seriesId.replace(/^series:/, ''));
   });
-  handle('catalog:refresh', async (sourceId: string) => {
-    store.clearCache(sourceId);
-    services.delete(sourceId);
-    progress({ phase: 'done', message: 'Catalogue cleared; it will reload as you browse.', progress: 1 });
-  });
+  handle('catalog:refresh', (sourceId: string) => refreshCatalog(sourceId));
   handle('catalog:stats', async (sourceId: string): Promise<SourceStats> => {
     const svc = servicesFor(sourceId);
     const [live, movies, series] = await Promise.all([
       getCategories(sourceId, 'live'), getCategories(sourceId, 'movie'), getCategories(sourceId, 'series'),
     ]);
     const epg = svc.epg.stats;
+    const playlist = svc.xtream ? undefined : await loadM3u(svc);
+    const snapshots = svc.xtream
+      ? CATALOG_KINDS.map((kind) => store.getCached(sourceId, allItemsKey(kind), CATALOG_TTL_MS, cachedMediaItems))
+      : undefined;
+    const indexed = snapshots?.every((items) => items !== undefined) ?? !svc.xtream;
     return {
       liveCategories: live.length,
       movieCategories: movies.length,
       seriesCategories: series.length,
+      catalogReady: indexed,
+      ...(snapshots
+        ? {
+            liveItems: snapshots[0]?.length,
+            movieItems: snapshots[1]?.length,
+            seriesItems: snapshots[2]?.length,
+          }
+        : {
+            liveItems: playlist?.items.filter((item) => item.kind === 'live').length,
+            movieItems: playlist?.items.filter((item) => item.kind === 'movie').length,
+            seriesItems: playlist?.items.filter((item) => item.kind === 'series').length,
+          }),
       epgProgrammes: epg.programmes,
       lastSync: epg.lastSync,
       epgFeeds: svc.epg.feedStatus(),
@@ -595,16 +740,29 @@ function registerIpc(): void {
   });
   handle('epg:overrides', (sourceId: string): GuideOverride[] => store.listGuideOverrides(sourceId));
 
+  handle('player:prepareTracks', (req: TrackRequest) => streamServer.prepareTracks(req, parsePlaybackPreferences(store.getSettings().playback)));
+  handle('player:cancelTracks', (sessionId: string, generation: number) => streamServer.cancelTracks(sessionId, generation));
+  handle('player:importSubtitles', async () => {
+    const result = await dialog.showOpenDialog({ title: 'Load subtitle file', properties: ['openFile'], filters: [{ name: 'Subtitles', extensions: ['srt', 'vtt'] }] });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const path = result.filePaths[0];
+    if (!['.srt', '.vtt'].includes(extname(path).toLowerCase()) || (await stat(path)).size > 10 * 1024 * 1024) throw new Error('Choose an SRT or VTT file smaller than 10 MB.');
+    let text: string;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(await readFile(path)); } catch { throw new Error('The subtitle file must use UTF-8 text encoding.'); }
+    const cues = parseSubtitleText(text);
+    if (!cues.length) throw new Error('No valid timed captions were found in this file.');
+    return { name: basename(path), cues };
+  });
   handle('player:resolve', (req: PlayRequest) => resolveStream(req));
   handle('player:openExternal', async (url: string) => {
     // The external player opens its own connection, and a film may still be reading ahead on ours.
-    streamServer.stopStream();
+    await streamServer.stopStream();
     const external = store.getSettings().externalPlayer;
     if (!external) { await shell.openExternal(url); return; }
     const { spawn } = await import('node:child_process');
     spawn(external, [url], { detached: true, stdio: 'ignore' }).unref();
   });
-  handle('player:stopRemux', () => { streamServer.stopStream(); });
+  handle('player:stopRemux', () => streamServer.stopStream());
   handle('player:lastError', () => streamServer.lastError());
   handle('player:streamDuration', () => streamServer.streamDuration());
   handle('player:markTranscode', (req: PlayRequest) => {
@@ -614,10 +772,10 @@ function registerIpc(): void {
   handle('cast:scan', () => cast.scan());
   handle('cast:connect', (id: string) => cast.connect(id));
   handle('cast:disconnect', () => cast.disconnect());
-  handle('cast:load', (stream: ResolvedStream, startAt?: number) => {
+  handle('cast:load', async (stream: ResolvedStream, startAt?: number) => {
     // A film cast as-is is fetched by the television straight from the provider, so the local
     // read-ahead has to give up the one connection first. /hls takes it over by itself.
-    if (stream.engine === 'native') streamServer.stopStream();
+    await streamServer.stopStream();
     return cast.load({ ...stream, url: stream.castUrl, mimeType: stream.castMimeType }, startAt);
   });
   handle('cast:play', () => cast.play());
@@ -712,6 +870,8 @@ app.whenReady().then(async () => {
   if (!store.getSettings().hardwareAcceleration) app.disableHardwareAcceleration();
 
   streamServer = new StreamServer();
+  streamServer.onCues = event => send('player-cues', event);
+  streamServer.onTracks = state => send('player-tracks', state);
   await streamServer.start();
   cast = new CastManager();
   cast.on('status', (s: CastStatus) => send('cast-status', s));

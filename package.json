@@ -33,8 +33,8 @@
     "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs",
     "test": "node tests/media-tracks.mjs --unit",
     "test:media": "node tests/media-tracks.mjs",
-    "test:player": "electron tests/player-tracks.cjs",
-    "test:recovery": "electron tests/setup-recovery.cjs"
+    "test:player": "node tests/run-electron.cjs player-tracks.cjs",
+    "test:recovery": "node tests/run-electron.cjs setup-recovery.cjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

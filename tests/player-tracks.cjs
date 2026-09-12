@@ -1,9 +1,8 @@
 // Production renderer and real stream server, with an isolated profile and original media fixtures.
 const { app, BrowserWindow, ipcMain, ipcRenderer } = require('electron');
 const assert = require('node:assert/strict');
-const { mkdtempSync, writeFileSync, readFileSync, rmSync } = require('node:fs');
+const { writeFileSync, readFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { tmpdir } = require('node:os');
 const { execFileSync } = require('node:child_process');
 if (process.type === 'renderer') {
   const invoke = (method, ...args) => ipcRenderer.invoke('fixture', method, ...args);
@@ -23,7 +22,8 @@ if (process.type === 'renderer') {
   const { StreamServer, DEFAULT_PLAYBACK, resolveFfmpegPath } = require('../dist/tests/media.cjs');
   const { createServer } = require('node:http');
   const { createReadStream, statSync } = require('node:fs');
-  const profile = mkdtempSync(join(tmpdir(), 'xiptv-player-'));
+  const profile = process.env.XIPTV_TEST_PROFILE;
+  if (!profile) throw new Error('Run with npm run test:player');
   app.setPath('userData', profile); app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
   app.on('window-all-closed', () => {});
@@ -162,7 +162,7 @@ if (process.type === 'renderer') {
     await until(() => [...document.querySelector('video').textTracks].some(t => Array.from(t.cues || []).some(c => c.text.includes('HI'))), 'converted CEA608 cues');
     console.log('PASS CEA-608 caption data survives video conversion');
     win.destroy(); await server.stop(); provider.closeAllConnections(); await new Promise(r => provider.close(r));
-    rmSync(profile, { recursive: true, force: true }); app.exit(0);
+    app.exit(0);
   }).catch(async error => {
     console.error(error);
     if (win && !win.isDestroyed()) win.destroy();

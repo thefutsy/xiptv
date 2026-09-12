@@ -1,9 +1,7 @@
-// Run after npm run build: node_modules/.bin/electron tests/setup-recovery.cjs
+// Run after npm run build: npm run test:recovery
 // Uses the production renderer with a fake preload, never the user's config or provider.
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
-const { mkdtempSync } = require('node:fs');
-const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 
 if (process.type === 'renderer') {
@@ -60,7 +58,8 @@ if (process.type === 'renderer') {
     },
   };
 } else {
-  app.setPath('userData', mkdtempSync(join(tmpdir(), 'xiptv-setup-test-')));
+  if (!process.env.XIPTV_TEST_PROFILE) throw new Error('Run with npm run test:recovery');
+  app.setPath('userData', process.env.XIPTV_TEST_PROFILE);
   app.disableHardwareAcceleration();
   app.on('window-all-closed', () => {});
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -47,6 +47,12 @@ jobs:
       - run: npm run ffmpeg:fetch
       - run: npm run build
       - run: npm run test:media
+      - name: Configure Electron sandbox
+        if: runner.os == 'Linux'
+        run: |
+          node node_modules/electron/install.js
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:player && xvfb-run -a npm run test:recovery
       - if: runner.os != 'Linux'

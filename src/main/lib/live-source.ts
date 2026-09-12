@@ -171,6 +171,8 @@ export class LiveTsSource extends Readable {
   #idle: ReturnType<typeof setTimeout> | undefined;
   #failure: Error | undefined;
 
+  readonly #abort = new AbortController();
+  #running: Promise<void> = Promise.resolve();
   readonly #pids = new Map<number, PidState>();
   #replaying = false;
   #replayBytes = 0;
@@ -196,7 +198,7 @@ export class LiveTsSource extends Readable {
   override _read(): void {
     if (!this.#connected) {
       this.#connected = true;
-      void this.#run();
+      this.#running = this.#run();
       return;
     }
     this.#upstream?.res.resume();
@@ -205,17 +207,20 @@ export class LiveTsSource extends Readable {
 
   override _destroy(err: Error | null, cb: (err?: Error | null) => void): void {
     this.#disarmIdle();
-    this.#upstream?.req.destroy();
+    this.#abort.abort();
+    const req = this.#upstream?.req;
+    const closed = !req || req.closed ? Promise.resolve() : new Promise<void>(resolve => req.once('close', resolve));
+    req?.destroy();
     this.#upstream?.res.destroy();
     this.#upstream = null;
-    cb(err);
+    void Promise.allSettled([closed, this.#running]).then(() => cb(err));
   }
 
   async #run(): Promise<void> {
     while (!this.destroyed) {
       let up: Upstream;
       try {
-        up = await openUpstream(this.#url, this.#opts);
+        up = await openUpstream(this.#url, this.#opts, { signal: this.#abort.signal });
       } catch (err) {
         if (this.destroyed) return;
         if (++this.#failures > this.#retryBudget(err)) {
@@ -224,7 +229,7 @@ export class LiveTsSource extends Readable {
           this.push(null);
           return;
         }
-        await delay(Math.min(RECONNECT_DELAY_MS * 2 ** this.#failures, MAX_RECONNECT_DELAY_MS));
+        await delay(Math.min(RECONNECT_DELAY_MS * 2 ** this.#failures, MAX_RECONNECT_DELAY_MS), undefined, { signal: this.#abort.signal }).catch(() => undefined);
         continue;
       }
       if (this.destroyed) {
@@ -237,7 +242,7 @@ export class LiveTsSource extends Readable {
       if (this.destroyed) return;
       this.#reconnects += 1;
       this.#beginReplay();
-      await delay(RECONNECT_DELAY_MS);
+      await delay(RECONNECT_DELAY_MS, undefined, { signal: this.#abort.signal }).catch(() => undefined);
     }
   }
 

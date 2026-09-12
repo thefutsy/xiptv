@@ -4,7 +4,7 @@ import type { IpcApi } from '@shared/types';
 
 const invoke = (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
 
-const PUSH_CHANNELS = new Set(['sync-progress', 'cast-status', 'window-state']);
+const PUSH_CHANNELS = new Set(['sync-progress', 'cast-status', 'window-state', 'player-cues', 'player-tracks']);
 
 const api: IpcApi = {
   sources: {
@@ -35,6 +35,9 @@ const api: IpcApi = {
     overrides: (sourceId) => invoke('epg:overrides', sourceId),
   },
   player: {
+    prepareTracks: (req) => invoke('player:prepareTracks', req),
+    cancelTracks: (sessionId, generation) => invoke('player:cancelTracks', sessionId, generation),
+    importSubtitles: () => invoke('player:importSubtitles'),
     resolve: (req) => invoke('player:resolve', req),
     openExternal: (url) => invoke('player:openExternal', url),
     stopRemux: () => invoke('player:stopRemux'),

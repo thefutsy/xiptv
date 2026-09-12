@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Captions, Check, ChevronLeft, Maximize, Minimize, PictureInPicture2,
+  ChevronLeft, Maximize, Minimize, PictureInPicture2,
   RotateCcw, RotateCw, SkipBack, SkipForward, TriangleAlert, Volume1, Volume2, VolumeX,
 } from 'lucide-react';
 import type { Episode, EpgProgramme, NowNext, ResolvedStream } from '@shared/types';
 import { useApp, activeSource, type NowPlaying } from '@/state/store';
-import { attachStream, bufferedEnd, detach, isPiped, mediaClock, seekTo, type MediaClock } from '@/lib/playback';
+import { attachStream, bufferedEnd, detach, resetPlaybackMemory, isPiped, mediaClock, seekTo, type MediaClock } from '@/lib/playback';
 import { splitGenres } from '@/lib/catalog';
 import {
   Button, Kicker, LogoPlate, PauseGlyph, PlayGlyph, Poster, Spinner, Tally, Tooltip, TruncateTail,
@@ -14,6 +14,8 @@ import { CastButton, toggleCastPicker } from '@/components/CastBar';
 import { IS_MAC, PLATFORM, WindowControls } from '@/components/TitleBar';
 import { classNames, errorText, formatClock, formatDuration, isTextEntry, progressThrough } from '@/lib/format';
 import './player.css';
+import { TrackMenu } from './TrackMenu';
+import { DEFAULT_PLAYBACK, parsePlaybackPreferences, type TrackState, type CaptionAppearance } from '@shared/tracks';
 
 function BackGlyph({ seconds }: { seconds: number }) {
   return (
@@ -99,8 +101,20 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
   const [nowNext, setNowNext] = useState<NowNext>();
   const [clockTick, setClockTick] = useState(() => Math.floor(Date.now() / 1000));
   const [{ prev: prevEpisode, next: nextEpisode }, setSiblings] = useState<{ prev?: Episode; next?: Episode }>({});
-  const [tracks, setTracks] = useState<Array<{ index: number; label: string }>>([]);
-  const [activeTrack, setActiveTrack] = useState(-1);
+  const [trackState, setTrackState] = useState<TrackState>({ sessionId: now.stream.sessionId ?? '', generation: 0, tracks: [], status: 'discovering' });
+  const playbackPrefs = useApp(s => s.settings.playback) ?? DEFAULT_PLAYBACK;
+  const prefsRef = useRef(playbackPrefs); prefsRef.current = playbackPrefs;
+  const [appearance, setAppearance] = useState(playbackPrefs.appearance);
+  const effectiveRef = useRef(stream);
+  const saveAppearanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const changeAppearance = (next: CaptionAppearance) => {
+    setAppearance(next);
+    if (saveAppearanceTimer.current) clearTimeout(saveAppearanceTimer.current);
+    saveAppearanceTimer.current = setTimeout(() => {
+      const playback = { ...parsePlaybackPreferences(useApp.getState().settings.playback), appearance: next };
+      void window.iptv.settings.set({ playback }).then(settings => useApp.getState().patch({ settings })).catch(() => undefined);
+    }, 250);
+  };
   const [hover, setHover] = useState<{ x: number; t: number }>();
   // An ffmpeg pipe has no length of its own: the element's duration is only what has arrived so far.
   const [learnedDuration, setLearnedDuration] = useState<number>();
@@ -173,6 +187,14 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
     let alive = true;
     void attachStream(video, stream, {
       startAt: resumeRef.current,
+      preferences: prefsRef.current,
+      onTracks: state => { if (alive) setTrackState(state); },
+      onClock: (effective, offset) => {
+        if (!alive) return;
+        effectiveRef.current = effective;
+        if (effective.duration) setLearnedDuration(effective.duration);
+        clockRef.current = mediaClock(effective, offset);
+      },
       onError: (message) => {
         if (!alive) return;
         setStall(0);
@@ -215,6 +237,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
   useEffect(() => () => {
     saveRef.current();
     detach();
+    resetPlaybackMemory();
     void window.iptv.player.stopRemux().catch(() => undefined);
   }, []);
 
@@ -259,36 +282,6 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
       v.removeEventListener('pause', end);
     };
   }, [stream, casting, attempt]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const refresh = (): void => {
-      const list: Array<{ index: number; label: string }> = [];
-      for (let i = 0; i < v.textTracks.length; i++) {
-        const t = v.textTracks[i];
-        if (t.kind === 'subtitles' || t.kind === 'captions') {
-          list.push({ index: i, label: t.label || t.language.toUpperCase() || `Track ${list.length + 1}` });
-        }
-      }
-      setTracks(list);
-    };
-    refresh();
-    v.textTracks.addEventListener('addtrack', refresh);
-    v.textTracks.addEventListener('removetrack', refresh);
-    return () => {
-      v.textTracks.removeEventListener('addtrack', refresh);
-      v.textTracks.removeEventListener('removetrack', refresh);
-    };
-  }, [stream, attempt]);
-
-  const pickTrack = useCallback((index: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    for (let i = 0; i < v.textTracks.length; i++) v.textTracks[i].mode = i === index ? 'showing' : 'disabled';
-    setActiveTrack(index);
-    setSubsOpen(false);
-  }, []);
 
   useEffect(() => {
     const channelId = item.epgChannelId;
@@ -377,7 +370,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
     const v = videoRef.current;
     if (!v || isLive) return;
     const limit = durRef.current > 0 ? durRef.current - 1 : Number.MAX_SAFE_INTEGER;
-    clockRef.current = seekTo(v, stream, clamp(seconds, 0, limit));
+    clockRef.current = seekTo(v, effectiveRef.current, clamp(seconds, 0, limit));
     sync();
   }, [isLive, stream, sync]);
 
@@ -485,7 +478,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (isTextEntry(e.target as Element | null)) return;
+      if (isTextEntry(e.target as Element | null) || (e.target instanceof Element && e.target.closest('.track-menu'))) return;
       wake();
 
       switch (e.key) {
@@ -564,6 +557,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
       data-idle={idle}
       data-casting={casting}
     >
+      <style>{`.player__video::cue { font-size: ${appearance.size / 100 * 2.6}vh; color: ${appearance.color}; background-color: rgba(0,0,0,${appearance.background}); text-shadow: 0 1px 2px black; }`}</style>
       <video
         ref={videoRef}
         className="player__video"
@@ -776,31 +770,7 @@ function PlayerSurface({ now }: { now: NowPlaying }) {
                 </div>
               </div>
 
-              {tracks.length > 0 && (
-                <div className="menu-anchor">
-                  <button
-                    className={classNames('player__btn', activeTrack >= 0 && 'player__btn--on')}
-                    onClick={() => setSubsOpen((o) => !o)}
-                    aria-label="Subtitles"
-                    aria-expanded={subsOpen}
-                  >
-                    <Captions size={20} strokeWidth={1.5} />
-                  </button>
-                  {subsOpen && (
-                    <div className="menu" role="menu">
-                      <button className="menu__row sm" role="menuitem" onClick={() => pickTrack(-1)}>
-                        <span className="menu__check">{activeTrack < 0 && <Check size={12} strokeWidth={1.5} />}</span>Off
-                      </button>
-                      {tracks.map((t) => (
-                        <button key={t.index} className="menu__row sm" role="menuitem" onClick={() => pickTrack(t.index)}>
-                          <span className="menu__check">{activeTrack === t.index && <Check size={12} strokeWidth={1.5} />}</span>
-                          <span className="truncate">{t.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <TrackMenu state={trackState} open={subsOpen} onOpen={setSubsOpen} appearance={appearance} onAppearance={changeAppearance} />
 
               <CastButton place="player" />
 

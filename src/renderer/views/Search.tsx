@@ -154,7 +154,17 @@ export function SearchPage() {
     setLoading(true);
     const id = ++request.current;
     window.iptv.catalog.search(source.id, q)
-      .then((found) => { if (id === request.current) { setResults(found); setError(undefined); setLoading(false); } })
+      .then((found) => {
+        if (id !== request.current) return;
+        setResults(found);
+        setError(undefined);
+        setLoading(false);
+        if (source.kind === 'xtream') {
+          void window.iptv.catalog.stats(source.id)
+            .then((s) => { if (id === request.current) setStats(s); })
+            .catch(() => undefined);
+        }
+      })
       .catch((err: unknown) => {
         if (id !== request.current) return;
         setResults([]);
@@ -232,7 +242,9 @@ export function SearchPage() {
               : hasQuery
               ? <>{shown.length.toLocaleString()} of {scoped.length.toLocaleString()} shown</>
               : stats
-                ? <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
+                ? stats.catalogReady
+                  ? <>{((stats.liveItems ?? 0) + (stats.movieItems ?? 0) + (stats.seriesItems ?? 0)).toLocaleString()} titles indexed</>
+                  : <>{(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories indexed</>
                 : <>Catalogue not read yet</>}
           </p>
         )}
@@ -306,7 +318,9 @@ export function SearchPage() {
             glyph={<Glyph icon={ICON.search} size={24} />}
             title="Find it by name"
             body={stats
-              ? `Channels, movies and series across ${(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories are indexed on this machine. Two characters is enough.`
+              ? stats.catalogReady
+                ? `${((stats.liveItems ?? 0) + (stats.movieItems ?? 0) + (stats.seriesItems ?? 0)).toLocaleString()} titles are indexed on this machine. Two characters is enough.`
+                : `Channels, movies and series across ${(stats.liveCategories + stats.movieCategories + stats.seriesCategories).toLocaleString()} categories are indexed on this machine. Two characters is enough.`
               : 'Everything your provider ships is indexed on this machine. Two characters is enough to start.'}
             action={<Button variant="ghost" onClick={() => useApp.getState().patch({ paletteOpen: true })}>Open the quick palette</Button>}
           />

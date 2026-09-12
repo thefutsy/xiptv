@@ -89,6 +89,9 @@ you only get one concurrent connection. As a result, this needs to be handled cl
   downloaded opens a new connection.
 - **Chromecast gets its own URL.** Cast devices cannot demux Matroska either, so live channels and
   MKV films are served to them as HLS from that same local server.
+- **Search uses a complete local snapshot.** An Xtream refresh reads the provider's full live,
+  movie and series lists into the on-disk cache, so search does not depend on which categories you
+  have opened. If an older source has no snapshot yet, its first search builds one in the same way.
 - **Live connections often drop every 30 to 60 seconds** and the provider replays its buffer from the
   start when you reconnect. The app reconnects itself and throws the repeated packets away, rather
   than letting ffmpeg glue them together and drift the audio. This results in a WAY more stable experience compared to other players
@@ -100,11 +103,47 @@ you only get one concurrent connection. As a result, this needs to be handled cl
 ## Contributing
 
 Issues and pull requests are welcome. `npm run build` runs the typecheck and the production build,
-and CI runs the same thing, so keep it green. There is no linter or test suite yet.
+and CI runs the same thing, so keep it green. There is no linter. Playback and recovery checks are documented below.
 
 Two rules reviews will ask about: close the previous connection before opening another, and never
-walk the whole catalogue during a render or on the main thread.
+walk the whole catalogue during a render. Large catalogue reads happen once during source refresh
+or first search, then subsequent searches stay local.
 
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+### Audio and captions
+
+Open **Audio & captions** in the player to select an audio language or caption track, turn captions
+Off, or load a UTF-8 `.srt`/`.vtt` file (up to 10 MB). Settings → Playback stores preferred languages
+and the default caption mode. Source audio and captions Off are the initial defaults; Automatic
+selects matching forced subtitles. Choices in the player apply to the current playback session.
+
+Text size, white/yellow text, and background opacity are saved automatically. Caption delay runs
+from −10 to +10 seconds; positive values display captions later. Delay and imported files reset
+for a new title/channel. Track discovery happens before playback and may add startup time. Switching
+embedded tracks may briefly restart playback while preserving the movie position and paused state;
+ordinary live channels reconnect near the live edge.
+
+Supported captions include HLS WebVTT/IMSC1, CEA-608 through HLS, embedded SRT/SubRip, WebVTT,
+ASS/SSA, MP4 timed text, and PGS/DVD/DVB image subtitles. Embedded text is normalized to the player's
+appearance; advanced ASS typesetting/animation is not preserved. Image subtitles are drawn into the
+video, require video encoding, and keep their original appearance. Their timing changes also restart
+playback. Full CEA-708-only decoding and Chromecast track controls are not included. Picture-in-picture
+caption display depends on the platform's native text-track support.
+
+Playback checks use generated, original media and a temporary application profile, without contacting
+or changing a configured provider:
+
+```sh
+npm run build
+npm test
+npm run test:media
+npm run test:player
+npm run test:recovery
+```
+
+The media tests build the test server bundle used by the player tests. Linux Electron checks require
+a display, for example `xvfb-run -a npm run test:player`. CI runs playback checks on macOS, Windows,
+and Linux with the FFmpeg build used by packaging.

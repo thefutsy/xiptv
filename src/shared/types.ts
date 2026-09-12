@@ -1,3 +1,4 @@
+import type { PlaybackPreferences, TrackRequest, TrackState, CueEvent, CaptionCue } from './tracks';
 export type SourceKind = 'xtream' | 'm3u';
 
 export interface XtreamSource {
@@ -116,6 +117,9 @@ export interface NowNext {
 export type PlaybackEngine = 'mpegts' | 'hls' | 'native' | 'remux' | 'transcode';
 
 export interface ResolvedStream {
+  sessionId?: string;
+  /** Locally generated HLS has a seek-relative clock. */
+  localHls?: boolean;
   /** URL the renderer should load. For `remux` this points at the local proxy. */
   url: string;
   /** Direct provider URL, used for Chromecast and external players. */
@@ -182,6 +186,7 @@ export interface WatchProgress {
 }
 
 export interface Settings {
+  playback?: PlaybackPreferences;
   activeSourceId?: string;
   liveFormat: 'ts' | 'hls';
   externalPlayer?: string;
@@ -251,6 +256,12 @@ export interface SourceStats {
   liveCategories: number;
   movieCategories: number;
   seriesCategories: number;
+  /** Whether the full provider catalogue is available for local search. */
+  catalogReady?: boolean;
+  /** Full catalogue counts, when a source-level snapshot has been read. */
+  liveItems?: number;
+  movieItems?: number;
+  seriesItems?: number;
   epgProgrammes: number;
   /** Unix SECONDS (not milliseconds) of the last successful EPG ingest. */
   lastSync?: number;
@@ -301,6 +312,9 @@ export interface IpcApi {
     overrides(sourceId: string): Promise<GuideOverride[]>;
   };
   player: {
+    prepareTracks(req: TrackRequest): Promise<{ state: TrackState; url: string; engine: PlaybackEngine; localHls: boolean; duration?: number }>;
+    cancelTracks(sessionId: string, generation: number): Promise<void>;
+    importSubtitles(): Promise<{ name: string; cues: CaptionCue[] } | null>;
     resolve(req: PlayRequest): Promise<ResolvedStream>;
     openExternal(url: string): Promise<void>;
     stopRemux(): Promise<void>;
@@ -345,6 +359,8 @@ export interface IpcApi {
     isMaximized(): Promise<boolean>;
   };
   /** Main -> renderer push events. Returns an unsubscribe function. */
+  on(channel: 'player-cues', cb: (event: CueEvent) => void): () => void;
+  on(channel: 'player-tracks', cb: (state: TrackState) => void): () => void;
   on(channel: 'sync-progress', cb: (p: SyncProgress) => void): () => void;
   on(channel: 'cast-status', cb: (s: CastStatus) => void): () => void;
   on(channel: 'window-state', cb: (s: { maximized: boolean; fullscreen: boolean }) => void): () => void;

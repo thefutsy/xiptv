@@ -1,6 +1,6 @@
 .onboard {
   position: relative;
-  min-height: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   color-scheme: dark;
@@ -21,6 +21,9 @@
 
 .onboard__panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   padding: 32px 36px 36px;
   border-radius: var(--r-modal);
@@ -28,6 +31,14 @@
   animation: onboard-panel-in var(--dur) var(--ease) both;
 }
 .onboard__panel--hero { padding-block: 40px 36px; }
+
+/* The details can exceed the window height after an error. Scroll that content, while
+   keeping Back, Test connection and Continue outside the scrolling region. */
+.onboard__stage { min-height: 0; overflow-y: auto; }
+.onboard__stage--connect { display: flex; flex-direction: column; overflow: hidden; }
+.onboard__connect-body { min-height: 0; overflow-y: auto; padding: 2px; }
+.onboard__connect-body .mx-report { overflow-wrap: anywhere; }
+.onboard__stage--connect > .onboard__acts { flex-shrink: 0; }
 
 @keyframes onboard-panel-in { from { opacity: 0; } }
 
@@ -87,7 +98,7 @@
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
 }
-.onboard__kicker--rail { animation: onboard-rise var(--dur) var(--ease) both; }
+.onboard__kicker--rail { flex-shrink: 0; animation: onboard-rise var(--dur) var(--ease) both; }
 .onboard__kicker-dot { margin-inline: 7px; color: var(--text-tertiary); }
 
 .onboard__title { color: var(--text-primary); text-wrap: balance; margin-block: 12px 10px; }
@@ -186,7 +197,7 @@
 }
 .onboard__count-label { display: block; margin-top: 2px; color: var(--text-secondary); font-size: var(--fs-sm); line-height: var(--lh-sm); }
 
-.onboard__foot { text-align: center; color: var(--text-tertiary); }
+.onboard__foot { flex-shrink: 0; text-align: center; color: var(--text-tertiary); }
 
 @media (max-height: 720px) {
   .onboard__col { padding-block: 20px 32px; }
